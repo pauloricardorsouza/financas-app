@@ -423,64 +423,138 @@ Esqueci a senha
 
 <!-- ================= APP ================= -->
 
-<div class="app">
+<di <div class="grid">
+      <!-- Principal -->
+      <div class="card">
+        <div class="cardHeader">
+          <div>
+            <h2>Resumo do mês</h2>
+            <div class="hint">Receitas, despesas, pagos e pendências</div>
+          </div>
+          <span class="badge" id="badgeStatus">—</span>
+        </div>
 
-<div class="topbar">
-<div class="toprow">
+        <div class="cardBody">
+          <div class="summary">
+            <div class="kpi">
+              <div class="label">💼 Total receitas</div>
+              <div class="value" id="kpiReceitas">R$ 0,00</div>
+            </div>
+            <div class="kpi">
+              <div class="label">🧾 Total despesas</div>
+              <div class="value" id="kpiDespesas">R$ 0,00</div>
+            </div>
+            <div class="kpi">
+              <div class="label">✅ Já pago</div>
+              <div class="value" id="kpiPago">R$ 0,00</div>
+            </div>
+            <div class="kpi">
+              <div class="label">⏳ Falta pagar</div>
+              <div class="value" id="kpiFalta">R$ 0,00</div>
+            </div>
+            <div class="kpi">
+              <div class="label">⚖️ Saldo</div>
+              <div class="value" id="kpiSaldo">R$ 0,00</div>
+            </div>
+          </div>
+        </div>
 
-<div id="userBox" style="display:flex;align-items:center;gap:10px;">
-<img id="userAvatar"
-style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid #6ea8ff;">
-<span id="userName" style="font-size:18px;"></span>
-</div>
+        <div class="tabs" id="tabs">
+          <div class="tab active" data-cat="ALL">Todas</div>
+          <div class="tab" data-cat="FIXA">Fixas</div>
+          <div class="tab" data-cat="CASA">Fixas da Casa</div>
+          <div class="tab" data-cat="DIVERSOS">Diversos</div>
+          <div class="tab" data-cat="PENDENTE">Somente pendentes</div>
+          <div class="tab" data-cat="PAGO">Somente pagas</div>
+        </div>
 
-<div class="controls">
-<button class="btn secondary" id="btnPDF">Exportar PDF</button>
-<button class="btn secondary" onclick="logout()">🚪 Sair</button>
-</div>
+        <div class="cardBody">
+          <div class="list" id="listContas"></div>
+          <div id="emptyContas" class="empty" style="display:none;">
+            Nenhuma conta cadastrada neste mês. Use “Adicionar conta” ao lado.
+          </div>
+        </div>
+      </div>
 
-</div>
-</div>
+      <!-- Lateral: ações -->
+      <div>
+        <div class="card" style="margin-bottom:14px;">
+          <div class="cardHeader">
+            <div>
+              <h2>Receitas (salários)</h2>
+              <div class="hint">Adicione uma ou várias receitas do mês</div>
+            </div>
+          </div>
+          <div class="cardBody">
+            <div class="formGrid">
+              <input id="incName" placeholder="Nome (ex: Salário)" class="row2" />
+              <input id="incValue" type="number" step="0.01" placeholder="Valor (R$)" />
+              <button class="btn" id="btnAddIncome">+ Adicionar</button>
+            </div>
 
-<div class="grid">
+            <div style="height:10px"></div>
+            <div class="list" id="listReceitas"></div>
+            <div id="emptyReceitas" class="empty" style="display:none;">
+              Nenhuma receita cadastrada.
+            </div>
+          </div>
+        </div>
 
-<div class="card">
-<div class="cardHeader">
-<h2>Resumo</h2>
-</div>
-<div class="cardBody">
-<div id="kpiReceitas"></div>
-<div id="kpiDespesas"></div>
-<div id="kpiSaldo"></div>
-</div>
-</div>
+        <div class="card">
+          <div class="cardHeader">
+            <div>
+              <h2>Despesas</h2>
+              <div class="hint">Fixas, casa, diversos e parcelas</div>
+            </div>
+          </div>
+          <div class="cardBody">
+            <div class="formGrid">
+              <input id="expName" placeholder="Nome (ex: Internet)" class="row2" />
+              <input id="expValue" type="number" step="0.01" placeholder="Valor total (R$)" />
 
-<div class="card">
-<div class="cardHeader">
-<h2>Adicionar Receita</h2>
-</div>
-<div class="cardBody">
-<input id="incName" placeholder="Nome">
-<input id="incValue" type="number" placeholder="Valor">
-<button id="btnAddIncome" class="btn">Adicionar</button>
-<div id="listReceitas"></div>
-</div>
-</div>
+              <select id="expCat">
+                <option value="FIXA">Fixa</option>
+                <option value="CASA">Fixa da Casa</option>
+                <option value="DIVERSOS">Diversos</option>
+              </select>
 
-<div class="card">
-<div class="cardHeader">
-<h2>Adicionar Despesa</h2>
-</div>
-<div class="cardBody">
-<input id="expName" placeholder="Nome">
-<input id="expValue" type="number" placeholder="Valor">
-<button id="btnAddExpense" class="btn">Adicionar</button>
-<div id="listContas"></div>
-</div>
-</div>
+              <div class="switch">
+                <input type="checkbox" id="expParcelado" />
+                <label for="expParcelado">Parcelado?</label>
+              </div>
 
-</div>
-</div>
+              <input id="expParcelas" type="number" min="2" step="1" placeholder="Nº parcelas (ex: 10)" style="display:none" />
+              <button class="btn" id="btnAddExpense">+ Adicionar conta</button>
+            </div>
+
+            <p class="mini" style="margin:10px 0 0;">
+              Dica: se marcar “Parcelado”, o sistema divide o valor total pelo número de parcelas e lança o valor mensal.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal export -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="modalHeader">
+        <strong>Exportação</strong>
+        <button class="btn secondary" id="btnCloseModal">Fechar</button>
+      </div>
+      <div class="modalBody">
+        <div class="mini">Copie e guarde esse JSON como backup.</div>
+        <div style="height:10px"></div>
+        <textarea id="exportBox" style="width:100%;height:260px;border-radius:16px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text);padding:12px;outline:none;"></textarea>
+      </div>
+      <div class="modalFooter">
+        <button class="btn" id="btnCopy">Copiar</button>
+      </div>
+    </div>
+  </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script type="module">
 
 /* ================= FIREBASE IMPORTS ================= */
@@ -746,4 +820,5 @@ function render(){
 </script>
 
 </body>
+
 </html>
