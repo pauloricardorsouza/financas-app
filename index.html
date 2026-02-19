@@ -482,31 +482,8 @@ style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px soli
 </div>
 </div>
 <script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyA0mw70fRdSRXvGapPSgDMs1myRLRSg"
-    authDomain: "financasmensaispaulods.firebaseapp.com",
-    projectId: "financasmensaispaulods",
-    storageBucket: "financasmensaispaulods.firebasestorage.app",
-    messagingSenderId: "168499253940",
-    appId: "1:168499253940:web:8d14795ad8195858283de1",
-    measurementId: "G-83HKTSNMXR"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-</script>
-<!-- ================= FIREBASE SCRIPT ================= -->
-
-<script type="module">
+/* ================= FIREBASE IMPORTS ================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 
@@ -528,16 +505,19 @@ import {
   enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-/* ================= CONFIG ================= */
+/* ================= CONFIG REAL ================= */
 
 const firebaseConfig = {
-apiKey: "SUA_API_KEY",
-authDomain: "SEU_AUTH_DOMAIN",
-projectId: "SEU_PROJECT_ID",
-storageBucket: "SEU_BUCKET",
-messagingSenderId: "SEU_MSG_ID",
-appId: "SEU_APP_ID"
+  apiKey: "AIzaSyA0mw70fRdSRXvGapPSgDMs1myRLRSg",
+  authDomain: "financasmensaispaulods.firebaseapp.com",
+  projectId: "financasmensaispaulods",
+  storageBucket: "financasmensaispaulods.firebasestorage.app",
+  messagingSenderId: "168499253940",
+  appId: "1:168499253940:web:8d14795ad8195858283de1",
+  measurementId: "G-83HKTSNMXR"
 };
+
+/* ================= INIT ================= */
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -555,52 +535,52 @@ let state={data:{}};
 /* ================= LOGIN ================= */
 
 btnLogin.onclick = async ()=>{
-try{
-await signInWithEmailAndPassword(auth,loginEmail.value.trim(),loginPass.value.trim());
-}catch(e){ alert(e.message); }
+  try{
+    await signInWithEmailAndPassword(auth,loginEmail.value.trim(),loginPass.value.trim());
+  }catch(e){ alert(e.message); }
 };
 
 btnRegister.onclick = async ()=>{
-try{
-const cred = await createUserWithEmailAndPassword(auth,loginEmail.value.trim(),loginPass.value.trim());
-await sendEmailVerification(cred.user);
-alert("Cadastro feito! Verifique seu e-mail.");
-}catch(e){ alert(e.message); }
+  try{
+    const cred = await createUserWithEmailAndPassword(auth,loginEmail.value.trim(),loginPass.value.trim());
+    await sendEmailVerification(cred.user);
+    alert("Cadastro feito! Verifique seu e-mail.");
+  }catch(e){ alert(e.message); }
 };
 
 window.resetPassword = async ()=>{
-if(!loginEmail.value) return alert("Digite o e-mail.");
-await sendPasswordResetEmail(auth,loginEmail.value.trim());
-alert("E-mail enviado.");
+  if(!loginEmail.value) return alert("Digite o e-mail.");
+  await sendPasswordResetEmail(auth,loginEmail.value.trim());
+  alert("E-mail enviado.");
 };
 
 showPass.onchange = function(){
-loginPass.type = this.checked ? "text":"password";
+  loginPass.type = this.checked ? "text":"password";
 };
 
 /* ================= AUTH ================= */
 
 onAuthStateChanged(auth, async user=>{
 
-if(user){
+  if(user){
 
-if(!user.emailVerified){
-alert("Verifique seu e-mail.");
-await signOut(auth);
-return;
-}
+    if(!user.emailVerified){
+      alert("Verifique seu e-mail antes de continuar.");
+      await signOut(auth);
+      return;
+    }
 
-loginScreen.style.display="none";
-userName.textContent=user.email;
-userAvatar.src="https://ui-avatars.com/api/?name="+user.email+"&background=6ea8ff&color=fff";
+    loginScreen.style.display="none";
+    userName.textContent=user.email;
+    userAvatar.src="https://ui-avatars.com/api/?name="+user.email+"&background=6ea8ff&color=fff";
 
-await loadData();
-render();
-startTimer();
+    await loadData();
+    render();
+    startTimer();
 
-}else{
-loginScreen.style.display="flex";
-}
+  }else{
+    loginScreen.style.display="flex";
+  }
 });
 
 /* ================= LOGOUT ================= */
@@ -613,156 +593,157 @@ let timer;
 const LIMIT=10*60*1000;
 
 function resetTimer(){
-clearTimeout(timer);
-timer=setTimeout(()=>{ alert("Sessão expirada"); logout(); },LIMIT);
+  clearTimeout(timer);
+  timer=setTimeout(()=>{
+    alert("Sessão expirada");
+    logout();
+  },LIMIT);
 }
 
 function startTimer(){
-["click","mousemove","keypress","scroll","touchstart"]
-.forEach(e=>document.addEventListener(e,resetTimer));
-resetTimer();
+  ["click","mousemove","keypress","scroll","touchstart"]
+  .forEach(e=>document.addEventListener(e,resetTimer));
+  resetTimer();
 }
 
 /* ================= FIRESTORE ================= */
 
 async function saveData(){
-try{
-const user=auth.currentUser;
-await setDoc(doc(db,"users",user.uid),{
-finances:state.data,
-updatedAt:Date.now()
-});
-}catch(e){
-console.error("Erro ao salvar:",e);
-}
+  try{
+    const user=auth.currentUser;
+    await setDoc(doc(db,"users",user.uid),{
+      finances:state.data,
+      updatedAt:Date.now()
+    });
+  }catch(e){
+    console.error("Erro ao salvar:",e);
+  }
 }
 
 async function loadData(){
-const user=auth.currentUser;
-const snap=await getDoc(doc(db,"users",user.uid));
-if(snap.exists()){
-state.data=snap.data().finances||{};
-}
+  const user=auth.currentUser;
+  const snap=await getDoc(doc(db,"users",user.uid));
+  if(snap.exists()){
+    state.data=snap.data().finances||{};
+  }
 }
 
 /* ================= ORGANIZAÇÃO POR MÊS ================= */
 
 function getKey(){
-const now=new Date();
-return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  const now=new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
 }
 
 function ensureBucket(){
-const key=getKey();
-if(!state.data[key]) state.data[key]={incomes:[],expenses:[]};
-return state.data[key];
+  const key=getKey();
+  if(!state.data[key]) state.data[key]={incomes:[],expenses:[]};
+  return state.data[key];
 }
 
 /* ================= FINANÇAS ================= */
 
 btnAddIncome.onclick=()=>{
-const valor=Number(incValue.value);
-if(!valor || valor<=0) return alert("Valor inválido.");
+  const valor=Number(incValue.value);
+  if(!valor || valor<=0) return alert("Valor inválido.");
 
-const b=ensureBucket();
-b.incomes.push({
-id:uid(),
-name:incName.value || "Receita",
-value:valor
-});
+  const b=ensureBucket();
+  b.incomes.push({
+    id:uid(),
+    name:incName.value || "Receita",
+    value:valor
+  });
 
-incName.value="";
-incValue.value="";
-saveData(); render();
+  incName.value="";
+  incValue.value="";
+  saveData(); render();
 };
 
 btnAddExpense.onclick=()=>{
-const valor=Number(expValue.value);
-if(!valor || valor<=0) return alert("Valor inválido.");
+  const valor=Number(expValue.value);
+  if(!valor || valor<=0) return alert("Valor inválido.");
 
-const b=ensureBucket();
-b.expenses.push({
-id:uid(),
-name:expName.value || "Despesa",
-value:valor,
-paid:false
-});
+  const b=ensureBucket();
+  b.expenses.push({
+    id:uid(),
+    name:expName.value || "Despesa",
+    value:valor,
+    paid:false
+  });
 
-expName.value="";
-expValue.value="";
-saveData(); render();
+  expName.value="";
+  expValue.value="";
+  saveData(); render();
 };
 
 window.togglePaid=id=>{
-const b=ensureBucket();
-const item=b.expenses.find(x=>x.id===id);
-if(!item) return;
-item.paid=!item.paid;
-saveData(); render();
+  const b=ensureBucket();
+  const item=b.expenses.find(x=>x.id===id);
+  if(!item) return;
+  item.paid=!item.paid;
+  saveData(); render();
 };
 
 window.removeExpense=id=>{
-const b=ensureBucket();
-b.expenses=b.expenses.filter(x=>x.id!==id);
-saveData(); render();
+  const b=ensureBucket();
+  b.expenses=b.expenses.filter(x=>x.id!==id);
+  saveData(); render();
 };
 
 window.removeIncome=id=>{
-const b=ensureBucket();
-b.incomes=b.incomes.filter(x=>x.id!==id);
-saveData(); render();
+  const b=ensureBucket();
+  b.incomes=b.incomes.filter(x=>x.id!==id);
+  saveData(); render();
 };
 
 /* ================= RENDER ================= */
 
 function render(){
-const b=ensureBucket();
+  const b=ensureBucket();
 
-listReceitas.innerHTML="";
-b.incomes.forEach(r=>{
-listReceitas.innerHTML+=`
-<div class="item">
-<div class="title"><strong>${r.name}</strong></div>
-<div class="money">${fmt(r.value)}</div>
-<div class="actions">
-<button class="btn" onclick="removeIncome('${r.id}')">Excluir</button>
-</div>
-</div>`;
-});
+  listReceitas.innerHTML="";
+  b.incomes.forEach(r=>{
+    listReceitas.innerHTML+=`
+    <div class="item">
+      <div class="title"><strong>${r.name}</strong></div>
+      <div class="money">${fmt(r.value)}</div>
+      <div class="actions">
+        <button class="btn" onclick="removeIncome('${r.id}')">Excluir</button>
+      </div>
+    </div>`;
+  });
 
-listContas.innerHTML="";
-b.expenses.forEach(c=>{
-listContas.innerHTML+=`
-<div class="item">
-<div class="title">
-<strong>${c.name}</strong>
-<div class="meta">
-<span class="chip ${c.paid?'good':'warn'}">${c.paid?'Pago':'Pendente'}</span>
-</div>
-</div>
-<div class="money">${fmt(c.value)}</div>
-<div class="actions">
-<button class="btn" onclick="togglePaid('${c.id}')">
-${c.paid?"Marcar pendente":"Marcar pago"}
-</button>
-<button class="btn" onclick="removeExpense('${c.id}')">
-Excluir
-</button>
-</div>
-</div>`;
-});
+  listContas.innerHTML="";
+  b.expenses.forEach(c=>{
+    listContas.innerHTML+=`
+    <div class="item">
+      <div class="title">
+        <strong>${c.name}</strong>
+        <div class="meta">
+          <span class="chip ${c.paid?'good':'warn'}">${c.paid?'Pago':'Pendente'}</span>
+        </div>
+      </div>
+      <div class="money">${fmt(c.value)}</div>
+      <div class="actions">
+        <button class="btn" onclick="togglePaid('${c.id}')">
+          ${c.paid?"Marcar pendente":"Marcar pago"}
+        </button>
+        <button class="btn" onclick="removeExpense('${c.id}')">
+          Excluir
+        </button>
+      </div>
+    </div>`;
+  });
 
-const totalInc=b.incomes.reduce((a,b)=>a+b.value,0);
-const totalExp=b.expenses.reduce((a,b)=>a+b.value,0);
-const paid=b.expenses.filter(x=>x.paid).reduce((a,b)=>a+b.value,0);
+  const totalInc=b.incomes.reduce((a,b)=>a+b.value,0);
+  const totalExp=b.expenses.reduce((a,b)=>a+b.value,0);
 
-kpiReceitas.textContent="Receitas: "+fmt(totalInc);
-kpiDespesas.textContent="Despesas: "+fmt(totalExp);
-kpiSaldo.textContent="Saldo: "+fmt(totalInc-totalExp);
+  kpiReceitas.textContent="Receitas: "+fmt(totalInc);
+  kpiDespesas.textContent="Despesas: "+fmt(totalExp);
+  kpiSaldo.textContent="Saldo: "+fmt(totalInc-totalExp);
 }
 
 </script>
-
 
 </body>
 </html>
