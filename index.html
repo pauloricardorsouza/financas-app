@@ -505,6 +505,8 @@ getDoc,
 enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+/* ================= CONFIG ================= */
+
 const firebaseConfig = {
 apiKey: "SUA_API_KEY",
 authDomain: "SEU_AUTH_DOMAIN",
@@ -531,20 +533,21 @@ let state={data:{}};
 
 btnLogin.onclick = async ()=>{
 try{
-await signInWithEmailAndPassword(auth,loginEmail.value,loginPass.value);
+await signInWithEmailAndPassword(auth,loginEmail.value.trim(),loginPass.value.trim());
 }catch(e){ alert(e.message); }
 };
 
 btnRegister.onclick = async ()=>{
 try{
-const cred = await createUserWithEmailAndPassword(auth,loginEmail.value,loginPass.value);
+const cred = await createUserWithEmailAndPassword(auth,loginEmail.value.trim(),loginPass.value.trim());
 await sendEmailVerification(cred.user);
-alert("Verifique seu e-mail.");
+alert("Cadastro feito! Verifique seu e-mail.");
 }catch(e){ alert(e.message); }
 };
 
 window.resetPassword = async ()=>{
-await sendPasswordResetEmail(auth,loginEmail.value);
+if(!loginEmail.value) return alert("Digite o e-mail.");
+await sendPasswordResetEmail(auth,loginEmail.value.trim());
 alert("E-mail enviado.");
 };
 
@@ -600,43 +603,77 @@ resetTimer();
 /* ================= FIRESTORE ================= */
 
 async function saveData(){
+try{
 const user=auth.currentUser;
 await setDoc(doc(db,"users",user.uid),{
 finances:state.data,
 updatedAt:Date.now()
 });
+}catch(e){
+console.error("Erro ao salvar:",e);
+}
 }
 
 async function loadData(){
 const user=auth.currentUser;
 const snap=await getDoc(doc(db,"users",user.uid));
-if(snap.exists()) state.data=snap.data().finances||{};
+if(snap.exists()){
+state.data=snap.data().finances||{};
+}
+}
+
+/* ================= ORGANIZAÇÃO POR MÊS ================= */
+
+function getKey(){
+const now=new Date();
+return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+}
+
+function ensureBucket(){
+const key=getKey();
+if(!state.data[key]) state.data[key]={incomes:[],expenses:[]};
+return state.data[key];
 }
 
 /* ================= FINANÇAS ================= */
 
-function ensureBucket(){
-if(!state.data["mes"]) state.data["mes"]={incomes:[],expenses:[]};
-return state.data["mes"];
-}
-
 btnAddIncome.onclick=()=>{
+const valor=Number(incValue.value);
+if(!valor || valor<=0) return alert("Valor inválido.");
+
 const b=ensureBucket();
-b.incomes.push({id:uid(),name:incName.value,value:Number(incValue.value)});
-incName.value=""; incValue.value="";
+b.incomes.push({
+id:uid(),
+name:incName.value || "Receita",
+value:valor
+});
+
+incName.value="";
+incValue.value="";
 saveData(); render();
 };
 
 btnAddExpense.onclick=()=>{
+const valor=Number(expValue.value);
+if(!valor || valor<=0) return alert("Valor inválido.");
+
 const b=ensureBucket();
-b.expenses.push({id:uid(),name:expName.value,value:Number(expValue.value),paid:false});
-expName.value=""; expValue.value="";
+b.expenses.push({
+id:uid(),
+name:expName.value || "Despesa",
+value:valor,
+paid:false
+});
+
+expName.value="";
+expValue.value="";
 saveData(); render();
 };
 
 window.togglePaid=id=>{
 const b=ensureBucket();
 const item=b.expenses.find(x=>x.id===id);
+if(!item) return;
 item.paid=!item.paid;
 saveData(); render();
 };
@@ -662,9 +699,11 @@ listReceitas.innerHTML="";
 b.incomes.forEach(r=>{
 listReceitas.innerHTML+=`
 <div class="item">
-<strong>${r.name}</strong>
-${fmt(r.value)}
-<button onclick="removeIncome('${r.id}')">Excluir</button>
+<div class="title"><strong>${r.name}</strong></div>
+<div class="money">${fmt(r.value)}</div>
+<div class="actions">
+<button class="btn" onclick="removeIncome('${r.id}')">Excluir</button>
+</div>
 </div>`;
 });
 
@@ -672,15 +711,27 @@ listContas.innerHTML="";
 b.expenses.forEach(c=>{
 listContas.innerHTML+=`
 <div class="item">
+<div class="title">
 <strong>${c.name}</strong>
-${fmt(c.value)}
-<button onclick="togglePaid('${c.id}')">${c.paid?"Pendente":"Pago"}</button>
-<button onclick="removeExpense('${c.id}')">Excluir</button>
+<div class="meta">
+<span class="chip ${c.paid?'good':'warn'}">${c.paid?'Pago':'Pendente'}</span>
+</div>
+</div>
+<div class="money">${fmt(c.value)}</div>
+<div class="actions">
+<button class="btn" onclick="togglePaid('${c.id}')">
+${c.paid?"Marcar pendente":"Marcar pago"}
+</button>
+<button class="btn" onclick="removeExpense('${c.id}')">
+Excluir
+</button>
+</div>
 </div>`;
 });
 
 const totalInc=b.incomes.reduce((a,b)=>a+b.value,0);
 const totalExp=b.expenses.reduce((a,b)=>a+b.value,0);
+const paid=b.expenses.filter(x=>x.paid).reduce((a,b)=>a+b.value,0);
 
 kpiReceitas.textContent="Receitas: "+fmt(totalInc);
 kpiDespesas.textContent="Despesas: "+fmt(totalExp);
@@ -688,6 +739,7 @@ kpiSaldo.textContent="Saldo: "+fmt(totalInc-totalExp);
 }
 
 </script>
+
 
 </body>
 </html>
