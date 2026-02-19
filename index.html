@@ -423,7 +423,32 @@ Esqueci a senha
 
 <!-- ================= APP ================= -->
 
-<di <div class="grid">
+ <div class="app">
+    <div class="topbar">
+      <div class="toprow">
+        <div class="brand">
+          <div class="logo"></div>
+          <div>
+            <h1>Finanças Mensais</h1>
+            <p>Controle de salários, contas e saldo do mês</p>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="pill">
+            <label>Mês</label>
+            <select id="month"></select>
+          </div>
+          <div class="pill">
+            <label>Ano</label>
+            <select id="year"></select>
+          </div>
+          <button class="btn secondary" id="btnPDF">Exportar PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
       <!-- Principal -->
       <div class="card">
         <div class="cardHeader">
@@ -822,3 +847,4 @@ function render(){
 </body>
 
 </html>
+
