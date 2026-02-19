@@ -381,6 +381,37 @@
 </head>
 
 <body>
+  <div id="loginScreen" style="
+position:fixed;
+inset:0;
+background:#0b1220;
+display:flex;
+align-items:center;
+justify-content:center;
+z-index:999;
+">
+
+<div style="
+background:#111f36;
+padding:30px;
+border-radius:20px;
+width:320px;
+display:flex;
+flex-direction:column;
+gap:15px;
+">
+
+<h2 style="margin:0;text-align:center;">Entrar</h2>
+
+<input id="loginEmail" placeholder="Email">
+<input id="loginPass" type="password" placeholder="Senha">
+
+<button id="btnLogin" class="btn">Entrar</button>
+<button id="btnRegister" class="btn secondary">Cadastrar</button>
+
+</div>
+</div>
+
   <div class="app">
     <div class="topbar">
       <div class="toprow">
@@ -546,70 +577,117 @@ const uid = ()=> Math.random().toString(36).slice(2,10);
 const months=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
 const state={
-  viewCat:"ALL",
-  selected:{month:new Date().getMonth(),year:new Date().getFullYear()},
-  data:{}
+selected:{month:new Date().getMonth(),year:new Date().getFullYear()},
+data:{}
 };
 
 function keyMY(m,y){
-  return `${y}-${String(m+1).padStart(2,"0")}`;
+return `${y}-${String(m+1).padStart(2,"0")}`;
 }
 
 function ensureBucket(m=state.selected.month,y=state.selected.year){
-  const k=keyMY(m,y);
-  if(!state.data[k]) state.data[k]={incomes:[],expenses:[]};
-  return state.data[k];
+const k=keyMY(m,y);
+if(!state.data[k]) state.data[k]={incomes:[],expenses:[]};
+return state.data[k];
 }
 
-/* ================= BANCO OFFLINE ================= */
+/* ================= LOGIN ================= */
 
-let db;
+let currentUser=null;
+let db=null;
 
-function initDB(){
-  const request = indexedDB.open("financasDB", 1);
+function getUsers(){
+return JSON.parse(localStorage.getItem("usuarios_financas")||"[]");
+}
 
-  request.onupgradeneeded = function(e){
-    db = e.target.result;
-    if(!db.objectStoreNames.contains("meses")){
-      db.createObjectStore("meses", { keyPath: "id" });
-    }
-  };
+function saveUsers(users){
+localStorage.setItem("usuarios_financas",JSON.stringify(users));
+}
 
-  request.onsuccess = function(e){
-    db = e.target.result;
-    loadDB();
-  };
+btnRegister.onclick=()=>{
+const email=loginEmail.value.trim();
+const pass=loginPass.value.trim();
+if(!email||!pass) return alert("Preencha tudo.");
 
-  request.onerror = function(){
-    console.log("Erro ao abrir banco");
-  };
+let users=getUsers();
+if(users.find(u=>u.email===email)){
+return alert("Usuário já existe.");
+}
+
+users.push({email,pass});
+saveUsers(users);
+alert("Usuário criado!");
+};
+
+btnLogin.onclick=()=>{
+const email=loginEmail.value.trim();
+const pass=loginPass.value.trim();
+
+const users=getUsers();
+const user=users.find(u=>u.email===email&&u.pass===pass);
+
+if(!user) return alert("Credenciais inválidas.");
+
+currentUser=email;
+localStorage.setItem("usuario_logado",email);
+
+document.getElementById("loginScreen").style.display="none";
+
+initDBForUser();
+};
+
+function autoLogin(){
+const saved=localStorage.getItem("usuario_logado");
+if(saved){
+currentUser=saved;
+document.getElementById("loginScreen").style.display="none";
+initDBForUser();
+}
+}
+
+/* ================= BANCO POR USUÁRIO ================= */
+
+function initDBForUser(){
+const request=indexedDB.open("financasDB_"+currentUser,1);
+
+request.onupgradeneeded=function(e){
+db=e.target.result;
+if(!db.objectStoreNames.contains("meses")){
+db.createObjectStore("meses",{keyPath:"id"});
+}
+};
+
+request.onsuccess=function(e){
+db=e.target.result;
+loadDB();
+};
 }
 
 function saveDB(){
-  const transaction = db.transaction(["meses"], "readwrite");
-  const store = transaction.objectStore("meses");
+const tx=db.transaction(["meses"],"readwrite");
+const store=tx.objectStore("meses");
 
-  store.put({
-    id: "dados_financas",
-    data: state.data,
-    selected: state.selected
-  });
+store.put({
+id:"dados_financas",
+data:state.data,
+selected:state.selected
+});
 }
 
 function loadDB(){
-  const transaction = db.transaction(["meses"], "readonly");
-  const store = transaction.objectStore("meses");
-  const request = store.get("dados_financas");
+const tx=db.transaction(["meses"],"readonly");
+const store=tx.objectStore("meses");
+const request=store.get("dados_financas");
 
-  request.onsuccess = function(){
-    if(request.result){
-      state.data = request.result.data || {};
-      state.selected = request.result.selected || state.selected;
-    }
-    initMonthYear();
-    ensureBucket();
-    render();
-  };
+request.onsuccess=function(){
+if(request.result){
+state.data=request.result.data||{};
+state.selected=request.result.selected||state.selected;
+}
+initMonthYear();
+ensureBucket();
+render();
+};
 }
 
 /* ================= MÊS / ANO ================= */
@@ -618,226 +696,191 @@ const monthSel=document.getElementById("month");
 const yearSel=document.getElementById("year");
 
 function initMonthYear(){
-  monthSel.innerHTML=months.map((m,i)=>`<option value="${i}">${m}</option>`).join("");
+monthSel.innerHTML=months.map((m,i)=>`<option value="${i}">${m}</option>`).join("");
 
-  const currentYear=new Date().getFullYear();
-  yearSel.innerHTML="";
-  for(let i=currentYear-5;i<=currentYear+5;i++){
-    yearSel.innerHTML+=`<option value="${i}">${i}</option>`;
-  }
+const currentYear=new Date().getFullYear();
+yearSel.innerHTML="";
+for(let i=currentYear-5;i<=currentYear+5;i++){
+yearSel.innerHTML+=`<option value="${i}">${i}</option>`;
+}
 
-  monthSel.value=state.selected.month;
-  yearSel.value=state.selected.year;
+monthSel.value=state.selected.month;
+yearSel.value=state.selected.year;
 
-  monthSel.onchange=()=>{
-    state.selected.month=Number(monthSel.value);
-    saveDB(); render();
-  };
+monthSel.onchange=()=>{
+state.selected.month=Number(monthSel.value);
+saveDB(); render();
+};
 
-  yearSel.onchange=()=>{
-    state.selected.year=Number(yearSel.value);
-    saveDB(); render();
-  };
+yearSel.onchange=()=>{
+state.selected.year=Number(yearSel.value);
+saveDB(); render();
+};
 }
 
 /* ================= RECEITAS ================= */
 
 btnAddIncome.onclick=()=>{
-  const bucket=ensureBucket();
-  const name=incName.value.trim()||"Salário";
-  const value=Number(incValue.value);
-  if(!value||value<=0) return alert("Valor inválido.");
+const bucket=ensureBucket();
+const name=incName.value.trim()||"Salário";
+const value=Number(incValue.value);
+if(!value||value<=0) return alert("Valor inválido.");
 
-  bucket.incomes.push({
-    id:uid(),
-    name,
-    value,
-    createdAt:Date.now()
-  });
+bucket.incomes.push({
+id:uid(),
+name,
+value,
+createdAt:Date.now()
+});
 
-  incName.value="";
-  incValue.value="";
-  saveDB(); render();
+incName.value="";
+incValue.value="";
+saveDB(); render();
 };
 
 function removeIncome(id){
-  const bucket=ensureBucket();
-  bucket.incomes=bucket.incomes.filter(x=>x.id!==id);
-  saveDB(); render();
+const bucket=ensureBucket();
+bucket.incomes=bucket.incomes.filter(x=>x.id!==id);
+saveDB(); render();
 }
 
 /* ================= DESPESAS ================= */
 
 expParcelado.addEventListener("change",()=>{
-  expParcelas.style.display=expParcelado.checked?"block":"none";
+expParcelas.style.display=expParcelado.checked?"block":"none";
 });
 
 btnAddExpense.onclick=()=>{
-  const name=expName.value.trim()||"Conta";
-  const valor=Number(expValue.value);
-  if(!valor||valor<=0) return alert("Valor inválido.");
+const name=expName.value.trim()||"Conta";
+const valor=Number(expValue.value);
+if(!valor||valor<=0) return alert("Valor inválido.");
 
-  const category=expCat.value;
-  const parcelado=expParcelado.checked;
-  const parcelas=Number(expParcelas.value||0);
+const category=expCat.value;
+const parcelado=expParcelado.checked;
+const parcelas=Number(expParcelas.value||0);
 
-  if(parcelado){
-    if(parcelas<2) return alert("Mínimo 2 parcelas.");
+if(parcelado){
+if(parcelas<2) return alert("Mínimo 2 parcelas.");
 
-    for(let i=0;i<parcelas;i++){
-      let mes=state.selected.month+i;
-      let ano=state.selected.year;
-      while(mes>11){ mes-=12; ano++; }
+for(let i=0;i<parcelas;i++){
+let mes=state.selected.month+i;
+let ano=state.selected.year;
+while(mes>11){mes-=12;ano++;}
 
-      const bucket=ensureBucket(mes,ano);
+const bucket=ensureBucket(mes,ano);
 
-      bucket.expenses.push({
-        id:uid(),
-        name,
-        category,
-        value:valor,
-        parcelas,
-        parcelaAtual:i+1,
-        paid:false,
-        createdAt:Date.now()
-      });
-    }
-  }else{
-    const bucket=ensureBucket();
-    bucket.expenses.push({
-      id:uid(),
-      name,
-      category,
-      value:valor,
-      paid:false,
-      createdAt:Date.now()
-    });
-  }
+bucket.expenses.push({
+id:uid(),
+name,
+category,
+value:valor,
+parcelas,
+parcelaAtual:i+1,
+paid:false,
+createdAt:Date.now()
+});
+}
+}else{
+const bucket=ensureBucket();
+bucket.expenses.push({
+id:uid(),
+name,
+category,
+value:valor,
+paid:false,
+createdAt:Date.now()
+});
+}
 
-  expName.value="";
-  expValue.value="";
-  expParcelado.checked=false;
-  expParcelas.value="";
-  expParcelas.style.display="none";
+expName.value="";
+expValue.value="";
+expParcelado.checked=false;
+expParcelas.value="";
+expParcelas.style.display="none";
 
-  saveDB(); render();
+saveDB(); render();
 };
 
 function togglePaid(id){
-  const bucket=ensureBucket();
-  const item=bucket.expenses.find(x=>x.id===id);
-  if(item){ item.paid=!item.paid; saveDB(); render(); }
+const bucket=ensureBucket();
+const item=bucket.expenses.find(x=>x.id===id);
+if(item){item.paid=!item.paid; saveDB(); render();}
 }
 
 function removeExpense(id){
-  const bucket=ensureBucket();
-  bucket.expenses=bucket.expenses.filter(x=>x.id!==id);
-  saveDB(); render();
+const bucket=ensureBucket();
+bucket.expenses=bucket.expenses.filter(x=>x.id!==id);
+saveDB(); render();
 }
 
 /* ================= CÁLCULO ================= */
 
 function compute(){
-  const bucket=ensureBucket();
-  const totalInc=bucket.incomes.reduce((a,b)=>a+b.value,0);
-  const totalExp=bucket.expenses.reduce((a,b)=>a+b.value,0);
-  const paid=bucket.expenses.filter(x=>x.paid).reduce((a,b)=>a+b.value,0);
-  return{
-    totalInc,
-    totalExp,
-    paid,
-    pending:totalExp-paid,
-    saldo:totalInc-totalExp
-  };
+const bucket=ensureBucket();
+const totalInc=bucket.incomes.reduce((a,b)=>a+b.value,0);
+const totalExp=bucket.expenses.reduce((a,b)=>a+b.value,0);
+const paid=bucket.expenses.filter(x=>x.paid).reduce((a,b)=>a+b.value,0);
+return{
+totalInc,
+totalExp,
+paid,
+pending:totalExp-paid,
+saldo:totalInc-totalExp
+};
 }
 
 /* ================= RENDER ================= */
 
-function renderKPIs(){
-  const {totalInc,totalExp,paid,pending,saldo}=compute();
-  kpiReceitas.textContent=fmt(totalInc);
-  kpiDespesas.textContent=fmt(totalExp);
-  kpiPago.textContent=fmt(paid);
-  kpiFalta.textContent=fmt(pending);
-  kpiSaldo.textContent=fmt(saldo);
-}
-
-function renderReceitas(){
-  const bucket=ensureBucket();
-  listReceitas.innerHTML="";
-  emptyReceitas.style.display=bucket.incomes.length===0?"block":"none";
-
-  bucket.incomes.forEach(r=>{
-    const div=document.createElement("div");
-    div.className="item";
-    div.innerHTML=`
-      <div class="title">
-        <strong>${r.name}</strong>
-      </div>
-      <div class="money">${fmt(r.value)}</div>
-      <div></div>
-      <div class="actions">
-        <button class="btn" onclick="removeIncome('${r.id}')">Excluir</button>
-      </div>
-    `;
-    listReceitas.appendChild(div);
-  });
-}
-
-function renderList(){
-  const bucket=ensureBucket();
-  listContas.innerHTML="";
-  emptyContas.style.display=bucket.expenses.length===0?"block":"none";
-
-  bucket.expenses.forEach(c=>{
-    const div=document.createElement("div");
-    div.className="item";
-
-    const parcelaChip=c.parcelas
-      ? `<span class="chip bad">${c.parcelaAtual}/${c.parcelas}</span>`
-      : "";
-
-    div.innerHTML=`
-      <div class="title">
-        <strong>${c.name}</strong>
-        <div class="meta">
-          <span class="chip ${c.paid?'good':'warn'}">${c.paid?'Pago':'Pendente'}</span>
-          ${parcelaChip}
-        </div>
-      </div>
-      <div class="money">${fmt(c.value)}</div>
-      <div class="actions">
-        <button class="btn" onclick="togglePaid('${c.id}')">
-          ${c.paid?'Marcar pendente':'Marcar pago'}
-        </button>
-      </div>
-      <div class="actions">
-        <button class="btn" onclick="removeExpense('${c.id}')">Excluir</button>
-      </div>
-    `;
-    listContas.appendChild(div);
-  });
-}
-
 function render(){
-  renderKPIs();
-  renderReceitas();
-  renderList();
+const {totalInc,totalExp,paid,pending,saldo}=compute();
+kpiReceitas.textContent=fmt(totalInc);
+kpiDespesas.textContent=fmt(totalExp);
+kpiPago.textContent=fmt(paid);
+kpiFalta.textContent=fmt(pending);
+kpiSaldo.textContent=fmt(saldo);
+}
+
+/* ================= LOGOUT ================= */
+
+function logout(){
+localStorage.removeItem("usuario_logado");
+location.reload();
 }
 
 /* ================= START ================= */
 
-initDB();
+autoLogin();
+
 /* ================= PWA ================= */
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js")
-      .then(() => console.log("PWA registrado"))
-      .catch(err => console.log("Erro SW:", err));
-  });
+window.addEventListener("load", () => {
+navigator.serviceWorker.register("/financas-app/service-worker.js");
+});
 }
 
+/* ================= BOTÃO INSTALAR ================= */
+
+let deferredPrompt;
+const btnInstall=document.getElementById("btnInstall");
+
+window.addEventListener("beforeinstallprompt",(e)=>{
+e.preventDefault();
+deferredPrompt=e;
+btnInstall.style.display="inline-flex";
+});
+
+btnInstall.addEventListener("click",async()=>{
+if(!deferredPrompt)return;
+deferredPrompt.prompt();
+await deferredPrompt.userChoice;
+deferredPrompt=null;
+btnInstall.style.display="none";
+});
+
+window.addEventListener("appinstalled",()=>{
+btnInstall.style.display="none";
+});
 </script>
 
 </body>
