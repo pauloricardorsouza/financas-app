@@ -400,8 +400,11 @@ display:flex;
 flex-direction:column;
 gap:15px;
 ">
-
-<h2 style="margin:0;text-align:center;">Entrar</h2>
+<div>
+    <center>
+    <h3>Controle de Finanças Mensais</h3>
+    </center>
+</div>
 
 <input id="loginEmail" placeholder="Email">
 <input id="loginPass" type="password" placeholder="Senha">
@@ -411,16 +414,14 @@ gap:15px;
 
 </div>
 </div>
-
   <div class="app">
     <div class="topbar">
       <div class="toprow">
         <div class="brand">
-          <div class="logo"></div>
-          <div>
-            <h1>Finanças Mensais</h1>
-            <p>Controle de salários, contas e saldo do mês</p>
-          </div>
+          <div id="userBox" style="display:flex;align-items:center;gap:10px;">
+           <img id="userAvatar" style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid #6ea8ff;"><span id="userName" style="font-size:23px;"></span>
+           </div>
+
         </div>
 
         <div class="controls">
@@ -433,6 +434,11 @@ gap:15px;
             <select id="year"></select>
           </div>
           <button class="btn secondary" id="btnPDF">Exportar PDF</button>
+          
+
+<button class="btn secondary" onclick="logout()">🚪 Sair</button>
+
+
         </div>
       </div>
     </div>
@@ -611,7 +617,12 @@ if(!email||!pass) return alert("Preencha tudo.");
 let users=getUsers();
 if(users.find(u=>u.email===email)) return alert("Usuário já existe.");
 
-users.push({email,pass});
+users.push({
+email,
+pass,
+avatar:`https://ui-avatars.com/api/?name=${email}&background=6ea8ff&color=fff`
+});
+
 saveUsers(users);
 alert("Usuário criado!");
 };
@@ -658,6 +669,8 @@ db.createObjectStore("meses",{keyPath:"id"});
 request.onsuccess=e=>{
 db=e.target.result;
 loadDB();
+loadUserInfo();
+startInactivityTimer();
 };
 }
 
@@ -682,6 +695,36 @@ state.selected=request.result.selected||state.selected;
 initMonthYear();
 render();
 };
+}
+
+/* ================= MOSTRAR USUÁRIO ================= */
+
+function loadUserInfo(){
+const users=getUsers();
+const user=users.find(u=>u.email===currentUser);
+if(!user) return;
+
+document.getElementById("userName").textContent=currentUser;
+document.getElementById("userAvatar").src=user.avatar;
+}
+
+/* ================= TIMEOUT ================= */
+
+let inactivityTimer;
+const TIME_LIMIT=10*60*1000;
+
+function resetTimer(){
+clearTimeout(inactivityTimer);
+inactivityTimer=setTimeout(()=>{
+alert("Sessão expirada por inatividade.");
+logout();
+},TIME_LIMIT);
+}
+
+function startInactivityTimer(){
+["click","mousemove","keypress","scroll","touchstart"]
+.forEach(event=>document.addEventListener(event,resetTimer));
+resetTimer();
 }
 
 /* ================= MÊS ================= */
@@ -730,11 +773,7 @@ saveDB(); render();
 /* ================= DESPESAS ================= */
 
 expCat.addEventListener("change",()=>{
-if(expCat.value==="FIXA"){
-expParcelas.style.display="block";
-}else{
-expParcelas.style.display="none";
-}
+expParcelas.style.display=expCat.value==="FIXA"?"block":"none";
 });
 
 btnAddExpense.onclick=()=>{
@@ -746,7 +785,6 @@ if(!valor||valor<=0) return alert("Valor inválido.");
 
 const origemId=uid();
 
-// FIXA (parcelada)
 if(category==="FIXA"){
 const parcelas=Number(expParcelas.value||0);
 if(parcelas<1) return alert("Informe número de parcelas.");
@@ -756,9 +794,7 @@ let mes=state.selected.month+i;
 let ano=state.selected.year;
 while(mes>11){mes-=12;ano++;}
 
-const bucket=ensureBucket(mes,ano);
-
-bucket.expenses.push({
+ensureBucket(mes,ano).expenses.push({
 id:uid(),
 origemId,
 name,
@@ -770,17 +806,13 @@ paid:false
 });
 }
 }
-
-// CASA (recorrente automática)
 else if(category==="CASA"){
 for(let i=0;i<120;i++){
 let mes=state.selected.month+i;
 let ano=state.selected.year;
 while(mes>11){mes-=12;ano++;}
 
-const bucket=ensureBucket(mes,ano);
-
-bucket.expenses.push({
+ensureBucket(mes,ano).expenses.push({
 id:uid(),
 origemId,
 name,
@@ -791,11 +823,8 @@ paid:false
 });
 }
 }
-
-// DIVERSOS
 else{
-const bucket=ensureBucket();
-bucket.expenses.push({
+ensureBucket().expenses.push({
 id:uid(),
 name,
 category,
@@ -807,8 +836,7 @@ paid:false
 expName.value="";
 expValue.value="";
 expParcelas.value="";
-saveDB();
-render();
+saveDB(); render();
 };
 
 function togglePaid(id){
@@ -830,9 +858,7 @@ Object.keys(state.data).forEach(k=>{
 state.data[k].expenses=
 state.data[k].expenses.filter(e=>e.origemId!==origemId);
 });
-
-saveDB();
-render();
+saveDB(); render();
 }
 
 /* ================= RENDER ================= */
