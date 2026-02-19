@@ -483,10 +483,9 @@ style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px soli
 </div>
 <script type="module">
 
-/* ================= FIREBASE IMPORTS ================= */
+/* ================= FIREBASE ================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -496,7 +495,6 @@ import {
   onAuthStateChanged,
   signOut
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-
 import {
   getFirestore,
   doc,
@@ -505,24 +503,18 @@ import {
   enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-/* ================= CONFIG REAL ================= */
-
 const firebaseConfig = {
   apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
   authDomain: "financasmensaispaulods.firebaseapp.com",
   projectId: "financasmensaispaulods",
   storageBucket: "financasmensaispaulods.firebasestorage.app",
   messagingSenderId: "168499253940",
-  appId: "1:168499253940:web:8d14795ad8195858283de1",
-  measurementId: "G-83HKTSNMXR"
+  appId: "1:168499253940:web:8d14795ad8195858283de1"
 };
-
-/* ================= INIT ================= */
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
 enableIndexedDbPersistence(db).catch(()=>{});
 
 /* ================= UTIL ================= */
@@ -531,53 +523,46 @@ const fmt = n => (Number(n)||0).toLocaleString("pt-BR",{style:"currency",currenc
 const uid = () => Math.random().toString(36).slice(2,10);
 
 let state={data:{}};
+let activeFilter="ALL";
 
 /* ================= LOGIN ================= */
 
-btnLogin.onclick = async ()=>{
+btnLogin.onclick=async()=>{
   try{
     await signInWithEmailAndPassword(auth,loginEmail.value.trim(),loginPass.value.trim());
-  }catch(e){ alert(e.message); }
+  }catch(e){alert(e.message);}
 };
 
-btnRegister.onclick = async ()=>{
+btnRegister.onclick=async()=>{
   try{
-    const cred = await createUserWithEmailAndPassword(auth,loginEmail.value.trim(),loginPass.value.trim());
+    const cred=await createUserWithEmailAndPassword(auth,loginEmail.value.trim(),loginPass.value.trim());
     await sendEmailVerification(cred.user);
-    alert("Cadastro feito! Verifique seu e-mail.");
-  }catch(e){ alert(e.message); }
+    alert("Verifique seu e-mail.");
+  }catch(e){alert(e.message);}
 };
 
-window.resetPassword = async ()=>{
-  if(!loginEmail.value) return alert("Digite o e-mail.");
+window.resetPassword=async()=>{
   await sendPasswordResetEmail(auth,loginEmail.value.trim());
   alert("E-mail enviado.");
 };
 
-showPass.onchange = function(){
-  loginPass.type = this.checked ? "text":"password";
+showPass.onchange=function(){
+  loginPass.type=this.checked?"text":"password";
 };
 
 /* ================= AUTH ================= */
 
-onAuthStateChanged(auth, async user=>{
-
+onAuthStateChanged(auth,async user=>{
   if(user){
-
     if(!user.emailVerified){
-      alert("Verifique seu e-mail antes de continuar.");
+      alert("Verifique seu e-mail.");
       await signOut(auth);
       return;
     }
-
     loginScreen.style.display="none";
-    userName.textContent=user.email;
-    userAvatar.src="https://ui-avatars.com/api/?name="+user.email+"&background=6ea8ff&color=fff";
-
     await loadData();
     render();
     startTimer();
-
   }else{
     loginScreen.style.display="flex";
   }
@@ -585,54 +570,41 @@ onAuthStateChanged(auth, async user=>{
 
 /* ================= LOGOUT ================= */
 
-window.logout = async ()=> await signOut(auth);
+window.logout=async()=>await signOut(auth);
 
 /* ================= TIMEOUT ================= */
 
 let timer;
-const LIMIT=10*60*1000;
-
+function startTimer(){
+  document.addEventListener("click",resetTimer);
+  resetTimer();
+}
 function resetTimer(){
   clearTimeout(timer);
-  timer=setTimeout(()=>{
-    alert("Sessão expirada");
-    logout();
-  },LIMIT);
-}
-
-function startTimer(){
-  ["click","mousemove","keypress","scroll","touchstart"]
-  .forEach(e=>document.addEventListener(e,resetTimer));
-  resetTimer();
+  timer=setTimeout(()=>{alert("Sessão expirada");logout();},10*60*1000);
 }
 
 /* ================= FIRESTORE ================= */
 
 async function saveData(){
-  try{
-    const user=auth.currentUser;
-    await setDoc(doc(db,"users",user.uid),{
-      finances:state.data,
-      updatedAt:Date.now()
-    });
-  }catch(e){
-    console.error("Erro ao salvar:",e);
-  }
+  const user=auth.currentUser;
+  await setDoc(doc(db,"users",user.uid),{
+    finances:state.data
+  });
 }
 
 async function loadData(){
   const user=auth.currentUser;
   const snap=await getDoc(doc(db,"users",user.uid));
-  if(snap.exists()){
-    state.data=snap.data().finances||{};
-  }
+  if(snap.exists()) state.data=snap.data().finances||{};
 }
 
-/* ================= ORGANIZAÇÃO POR MÊS ================= */
+/* ================= MÊS ================= */
 
 function getKey(){
-  const now=new Date();
-  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  const y=year.value;
+  const m=month.value;
+  return `${y}-${m}`;
 }
 
 function ensureBucket(){
@@ -641,59 +613,84 @@ function ensureBucket(){
   return state.data[key];
 }
 
-/* ================= FINANÇAS ================= */
+/* ================= RECEITAS ================= */
 
 btnAddIncome.onclick=()=>{
   const valor=Number(incValue.value);
-  if(!valor || valor<=0) return alert("Valor inválido.");
+  if(!valor) return;
 
   const b=ensureBucket();
-  b.incomes.push({
-    id:uid(),
-    name:incName.value || "Receita",
-    value:valor
-  });
+  b.incomes.push({id:uid(),name:incName.value,value:valor});
 
   incName.value="";
   incValue.value="";
-  saveData(); render();
+  saveData();render();
 };
+
+/* ================= DESPESAS ================= */
 
 btnAddExpense.onclick=()=>{
   const valor=Number(expValue.value);
-  if(!valor || valor<=0) return alert("Valor inválido.");
+  if(!valor) return;
 
   const b=ensureBucket();
-  b.expenses.push({
-    id:uid(),
-    name:expName.value || "Despesa",
-    value:valor,
-    paid:false
-  });
+
+  if(expParcelado.checked){
+    const parcelas=Number(expParcelas.value);
+    const mensal=valor/parcelas;
+    for(let i=0;i<parcelas;i++){
+      b.expenses.push({
+        id:uid(),
+        name:expName.value+" (Parcela)",
+        value:mensal,
+        paid:false,
+        cat:expCat.value
+      });
+    }
+  }else{
+    b.expenses.push({
+      id:uid(),
+      name:expName.value,
+      value:valor,
+      paid:false,
+      cat:expCat.value
+    });
+  }
 
   expName.value="";
   expValue.value="";
-  saveData(); render();
+  expParcelas.value="";
+  saveData();render();
 };
 
 window.togglePaid=id=>{
   const b=ensureBucket();
   const item=b.expenses.find(x=>x.id===id);
-  if(!item) return;
   item.paid=!item.paid;
-  saveData(); render();
+  saveData();render();
 };
 
 window.removeExpense=id=>{
   const b=ensureBucket();
   b.expenses=b.expenses.filter(x=>x.id!==id);
-  saveData(); render();
+  saveData();render();
 };
 
 window.removeIncome=id=>{
   const b=ensureBucket();
   b.incomes=b.incomes.filter(x=>x.id!==id);
-  saveData(); render();
+  saveData();render();
+};
+
+/* ================= FILTROS ================= */
+
+tabs.onclick=e=>{
+  if(e.target.classList.contains("tab")){
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    e.target.classList.add("active");
+    activeFilter=e.target.dataset.cat;
+    render();
+  }
 };
 
 /* ================= RENDER ================= */
@@ -714,7 +711,14 @@ function render(){
   });
 
   listContas.innerHTML="";
-  b.expenses.forEach(c=>{
+  let expenses=b.expenses;
+
+  if(activeFilter==="PENDENTE") expenses=expenses.filter(x=>!x.paid);
+  if(activeFilter==="PAGO") expenses=expenses.filter(x=>x.paid);
+  if(["FIXA","CASA","DIVERSOS"].includes(activeFilter))
+    expenses=expenses.filter(x=>x.cat===activeFilter);
+
+  expenses.forEach(c=>{
     listContas.innerHTML+=`
     <div class="item">
       <div class="title">
@@ -737,13 +741,34 @@ function render(){
 
   const totalInc=b.incomes.reduce((a,b)=>a+b.value,0);
   const totalExp=b.expenses.reduce((a,b)=>a+b.value,0);
+  const pago=b.expenses.filter(x=>x.paid).reduce((a,b)=>a+b.value,0);
+  const falta=totalExp-pago;
 
-  kpiReceitas.textContent="Receitas: "+fmt(totalInc);
-  kpiDespesas.textContent="Despesas: "+fmt(totalExp);
-  kpiSaldo.textContent="Saldo: "+fmt(totalInc-totalExp);
+  kpiReceitas.textContent=fmt(totalInc);
+  kpiDespesas.textContent=fmt(totalExp);
+  kpiPago.textContent=fmt(pago);
+  kpiFalta.textContent=fmt(falta);
+  kpiSaldo.textContent=fmt(totalInc-totalExp);
+
+  badgeStatus.textContent=totalInc-totalExp>=0?"Positivo":"Negativo";
 }
+
+/* ================= EXPORT ================= */
+
+btnPDF.onclick=()=>{
+  overlay.classList.add("show");
+  exportBox.value=JSON.stringify(state.data,null,2);
+};
+
+btnCloseModal.onclick=()=>overlay.classList.remove("show");
+btnCopy.onclick=()=>{
+  navigator.clipboard.writeText(exportBox.value);
+  alert("Copiado!");
+};
 
 </script>
 
+
 </body>
 </html>
+
