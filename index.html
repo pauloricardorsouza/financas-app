@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Finanças Mensais</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Finanças Mensais</title>
+
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0b1220">
-
-  <style>
+<style>
     :root{
       --bg:#0b1220;
       --card:#0f1a2e;
@@ -381,15 +381,17 @@
 </head>
 
 <body>
-  <div id="loginScreen" style="
+
+<!-- ================= LOGIN ================= -->
+
+<div id="loginScreen" style="
 position:fixed;
 inset:0;
 background:#0b1220;
 display:flex;
 align-items:center;
 justify-content:center;
-z-index:999;
-">
+z-index:999;">
 
 <div style="
 background:#111f36;
@@ -398,577 +400,294 @@ border-radius:20px;
 width:320px;
 display:flex;
 flex-direction:column;
-gap:15px;
-">
-<div>
-    <center>
-    <h3>Controle de Finanças Mensais</h3>
-    </center>
-</div>
+gap:15px;">
+
+<h3 style="text-align:center;">Controle de Finanças</h3>
 
 <input id="loginEmail" placeholder="Email">
 <input id="loginPass" type="password" placeholder="Senha">
 
+<div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+<input type="checkbox" id="showPass">
+<label for="showPass">Mostrar senha</label>
+</div>
+
 <button id="btnLogin" class="btn">Entrar</button>
 <button id="btnRegister" class="btn secondary">Cadastrar</button>
+<button onclick="resetPassword()" class="btn secondary">
+Esqueci a senha
+</button>
 
 </div>
 </div>
-  <div class="app">
-    <div class="topbar">
-      <div class="toprow">
-        <div class="brand">
-          <div id="userBox" style="display:flex;align-items:center;gap:10px;">
-           <img id="userAvatar" style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid #6ea8ff;"><span id="userName" style="font-size:23px;"></span>
-           </div>
 
-        </div>
+<!-- ================= APP ================= -->
 
-        <div class="controls">
-          <div class="pill">
-            <label>Mês</label>
-            <select id="month"></select>
-          </div>
-          <div class="pill">
-            <label>Ano</label>
-            <select id="year"></select>
-          </div>
-          <button class="btn secondary" id="btnPDF">Exportar PDF</button>
-          
+<div class="app">
 
+<div class="topbar">
+<div class="toprow">
+
+<div id="userBox" style="display:flex;align-items:center;gap:10px;">
+<img id="userAvatar"
+style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid #6ea8ff;">
+<span id="userName" style="font-size:18px;"></span>
+</div>
+
+<div class="controls">
+<button class="btn secondary" id="btnPDF">Exportar PDF</button>
 <button class="btn secondary" onclick="logout()">🚪 Sair</button>
+</div>
 
+</div>
+</div>
 
-        </div>
-      </div>
-    </div>
+<div class="grid">
 
-    <div class="grid">
-      <!-- Principal -->
-      <div class="card">
-        <div class="cardHeader">
-          <div>
-            <h2>Resumo do mês</h2>
-            <div class="hint">Receitas, despesas, pagos e pendências</div>
-          </div>
-          <span class="badge" id="badgeStatus">—</span>
-        </div>
+<div class="card">
+<div class="cardHeader">
+<h2>Resumo</h2>
+</div>
+<div class="cardBody">
+<div id="kpiReceitas"></div>
+<div id="kpiDespesas"></div>
+<div id="kpiSaldo"></div>
+</div>
+</div>
 
-        <div class="cardBody">
-          <div class="summary">
-            <div class="kpi">
-              <div class="label">💼 Total receitas</div>
-              <div class="value" id="kpiReceitas">R$ 0,00</div>
-            </div>
-            <div class="kpi">
-              <div class="label">🧾 Total despesas</div>
-              <div class="value" id="kpiDespesas">R$ 0,00</div>
-            </div>
-            <div class="kpi">
-              <div class="label">✅ Já pago</div>
-              <div class="value" id="kpiPago">R$ 0,00</div>
-            </div>
-            <div class="kpi">
-              <div class="label">⏳ Falta pagar</div>
-              <div class="value" id="kpiFalta">R$ 0,00</div>
-            </div>
-            <div class="kpi">
-              <div class="label">⚖️ Saldo</div>
-              <div class="value" id="kpiSaldo">R$ 0,00</div>
-            </div>
-          </div>
-        </div>
+<div class="card">
+<div class="cardHeader">
+<h2>Adicionar Receita</h2>
+</div>
+<div class="cardBody">
+<input id="incName" placeholder="Nome">
+<input id="incValue" type="number" placeholder="Valor">
+<button id="btnAddIncome" class="btn">Adicionar</button>
+<div id="listReceitas"></div>
+</div>
+</div>
 
-        <div class="tabs" id="tabs">
-          <div class="tab active" data-cat="ALL">Todas</div>
-          <div class="tab" data-cat="FIXA">Fixas</div>
-          <div class="tab" data-cat="CASA">Fixas da Casa</div>
-          <div class="tab" data-cat="DIVERSOS">Diversos</div>
-          <div class="tab" data-cat="PENDENTE">Somente pendentes</div>
-          <div class="tab" data-cat="PAGO">Somente pagas</div>
-        </div>
+<div class="card">
+<div class="cardHeader">
+<h2>Adicionar Despesa</h2>
+</div>
+<div class="cardBody">
+<input id="expName" placeholder="Nome">
+<input id="expValue" type="number" placeholder="Valor">
+<button id="btnAddExpense" class="btn">Adicionar</button>
+<div id="listContas"></div>
+</div>
+</div>
 
-        <div class="cardBody">
-          <div class="list" id="listContas"></div>
-          <div id="emptyContas" class="empty" style="display:none;">
-            Nenhuma conta cadastrada neste mês. Use “Adicionar conta” ao lado.
-          </div>
-        </div>
-      </div>
+</div>
+</div>
 
-      <!-- Lateral: ações -->
-      <div>
-        <div class="card" style="margin-bottom:14px;">
-          <div class="cardHeader">
-            <div>
-              <h2>Receitas (salários)</h2>
-              <div class="hint">Adicione uma ou várias receitas do mês</div>
-            </div>
-          </div>
-          <div class="cardBody">
-            <div class="formGrid">
-              <input id="incName" placeholder="Nome (ex: Salário)" class="row2" />
-              <input id="incValue" type="number" step="0.01" placeholder="Valor (R$)" />
-              <button class="btn" id="btnAddIncome">+ Adicionar</button>
-            </div>
+<!-- ================= FIREBASE SCRIPT ================= -->
 
-            <div style="height:10px"></div>
-            <div class="list" id="listReceitas"></div>
-            <div id="emptyReceitas" class="empty" style="display:none;">
-              Nenhuma receita cadastrada.
-            </div>
-          </div>
-        </div>
+<script type="module">
 
-        <div class="card">
-          <div class="cardHeader">
-            <div>
-              <h2>Despesas</h2>
-              <div class="hint">Fixas, casa, diversos e parcelas</div>
-            </div>
-          </div>
-          <div class="cardBody">
-            <div class="formGrid">
-              <input id="expName" placeholder="Nome (ex: Internet)" class="row2" />
-              <input id="expValue" type="number" step="0.01" placeholder="Valor total (R$)" />
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+getAuth,
+createUserWithEmailAndPassword,
+signInWithEmailAndPassword,
+sendEmailVerification,
+sendPasswordResetEmail,
+onAuthStateChanged,
+signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-              <select id="expCat">
-                <option value="FIXA">Fixa</option>
-                <option value="CASA">Fixa da Casa</option>
-                <option value="DIVERSOS">Diversos</option>
-              </select>
+import {
+getFirestore,
+doc,
+setDoc,
+getDoc,
+enableIndexedDbPersistence
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-              <div class="switch">
-                <input type="checkbox" id="expParcelado" />
-                <label for="expParcelado">Parcelado?</label>
-              </div>
+const firebaseConfig = {
+apiKey: "SUA_API_KEY",
+authDomain: "SEU_AUTH_DOMAIN",
+projectId: "SEU_PROJECT_ID",
+storageBucket: "SEU_BUCKET",
+messagingSenderId: "SEU_MSG_ID",
+appId: "SEU_APP_ID"
+};
 
-              <input id="expParcelas" type="number" min="2" step="1" placeholder="Nº parcelas (ex: 10)" style="display:none" />
-              <button class="btn" id="btnAddExpense">+ Adicionar conta</button>
-            </div>
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-            <p class="mini" style="margin:10px 0 0;">
-              Dica: se marcar “Parcelado”, o sistema divide o valor total pelo número de parcelas e lança o valor mensal.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+enableIndexedDbPersistence(db).catch(()=>{});
 
-  <!-- Modal export -->
-  <div class="overlay" id="overlay">
-    <div class="modal">
-      <div class="modalHeader">
-        <strong>Exportação</strong>
-        <button class="btn secondary" id="btnCloseModal">Fechar</button>
-      </div>
-      <div class="modalBody">
-        <div class="mini">Copie e guarde esse JSON como backup.</div>
-        <div style="height:10px"></div>
-        <textarea id="exportBox" style="width:100%;height:260px;border-radius:16px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text);padding:12px;outline:none;"></textarea>
-      </div>
-      <div class="modalFooter">
-        <button class="btn" id="btnCopy">Copiar</button>
-      </div>
-    </div>
-  </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script>
 /* ================= UTIL ================= */
+
 const fmt = n => (Number(n)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const uid = () => Math.random().toString(36).slice(2,10);
 
-let db=null;
-let currentUser=null;
-
-const state={
-selected:{month:new Date().getMonth(),year:new Date().getFullYear()},
-data:{}
-};
-
-function keyMY(m,y){
-return `${y}-${String(m+1).padStart(2,"0")}`;
-}
-
-function ensureBucket(m=state.selected.month,y=state.selected.year){
-const k=keyMY(m,y);
-if(!state.data[k]) state.data[k]={incomes:[],expenses:[]};
-return state.data[k];
-}
+let state={data:{}};
 
 /* ================= LOGIN ================= */
 
-function getUsers(){
-return JSON.parse(localStorage.getItem("usuarios_financas")||"[]");
-}
-
-function saveUsers(users){
-localStorage.setItem("usuarios_financas",JSON.stringify(users));
-}
-
-btnRegister.onclick=()=>{
-const email=loginEmail.value.trim();
-const pass=loginPass.value.trim();
-if(!email||!pass) return alert("Preencha tudo.");
-
-let users=getUsers();
-if(users.find(u=>u.email===email)) return alert("Usuário já existe.");
-
-users.push({
-email,
-pass,
-avatar:`https://ui-avatars.com/api/?name=${email}&background=6ea8ff&color=fff`
-});
-
-saveUsers(users);
-alert("Usuário criado!");
+btnLogin.onclick = async ()=>{
+try{
+await signInWithEmailAndPassword(auth,loginEmail.value,loginPass.value);
+}catch(e){ alert(e.message); }
 };
 
-btnLogin.onclick=()=>{
-const email=loginEmail.value.trim();
-const pass=loginPass.value.trim();
-
-const user=getUsers().find(u=>u.email===email&&u.pass===pass);
-if(!user) return alert("Credenciais inválidas.");
-
-currentUser=email;
-localStorage.setItem("usuario_logado",email);
-document.getElementById("loginScreen").style.display="none";
-initDBForUser();
+btnRegister.onclick = async ()=>{
+try{
+const cred = await createUserWithEmailAndPassword(auth,loginEmail.value,loginPass.value);
+await sendEmailVerification(cred.user);
+alert("Verifique seu e-mail.");
+}catch(e){ alert(e.message); }
 };
 
-function autoLogin(){
-const saved=localStorage.getItem("usuario_logado");
-if(saved){
-currentUser=saved;
-document.getElementById("loginScreen").style.display="none";
-initDBForUser();
-}
-}
-
-function logout(){
-localStorage.removeItem("usuario_logado");
-location.reload();
-}
-
-/* ================= BANCO ================= */
-
-function initDBForUser(){
-const request=indexedDB.open("financasDB_"+currentUser,1);
-
-request.onupgradeneeded=e=>{
-db=e.target.result;
-if(!db.objectStoreNames.contains("meses")){
-db.createObjectStore("meses",{keyPath:"id"});
-}
+window.resetPassword = async ()=>{
+await sendPasswordResetEmail(auth,loginEmail.value);
+alert("E-mail enviado.");
 };
 
-request.onsuccess=e=>{
-db=e.target.result;
-loadDB();
-loadUserInfo();
-startInactivityTimer();
+showPass.onchange = function(){
+loginPass.type = this.checked ? "text":"password";
 };
+
+/* ================= AUTH ================= */
+
+onAuthStateChanged(auth, async user=>{
+
+if(user){
+
+if(!user.emailVerified){
+alert("Verifique seu e-mail.");
+await signOut(auth);
+return;
 }
 
-function saveDB(){
-const tx=db.transaction(["meses"],"readwrite");
-tx.objectStore("meses").put({
-id:"dados_financas",
-data:state.data,
-selected:state.selected
-});
-}
+loginScreen.style.display="none";
+userName.textContent=user.email;
+userAvatar.src="https://ui-avatars.com/api/?name="+user.email+"&background=6ea8ff&color=fff";
 
-function loadDB(){
-const tx=db.transaction(["meses"],"readonly");
-const request=tx.objectStore("meses").get("dados_financas");
-
-request.onsuccess=()=>{
-if(request.result){
-state.data=request.result.data||{};
-state.selected=request.result.selected||state.selected;
-}
-initMonthYear();
+await loadData();
 render();
-};
+startTimer();
+
+}else{
+loginScreen.style.display="flex";
 }
+});
 
-/* ================= MOSTRAR USUÁRIO ================= */
+/* ================= LOGOUT ================= */
 
-function loadUserInfo(){
-const users=getUsers();
-const user=users.find(u=>u.email===currentUser);
-if(!user) return;
-
-document.getElementById("userName").textContent=currentUser;
-document.getElementById("userAvatar").src=user.avatar;
-}
+window.logout = async ()=> await signOut(auth);
 
 /* ================= TIMEOUT ================= */
 
-let inactivityTimer;
-const TIME_LIMIT=10*60*1000;
+let timer;
+const LIMIT=10*60*1000;
 
 function resetTimer(){
-clearTimeout(inactivityTimer);
-inactivityTimer=setTimeout(()=>{
-alert("Sessão expirada por inatividade.");
-logout();
-},TIME_LIMIT);
+clearTimeout(timer);
+timer=setTimeout(()=>{ alert("Sessão expirada"); logout(); },LIMIT);
 }
 
-function startInactivityTimer(){
+function startTimer(){
 ["click","mousemove","keypress","scroll","touchstart"]
-.forEach(event=>document.addEventListener(event,resetTimer));
+.forEach(e=>document.addEventListener(e,resetTimer));
 resetTimer();
 }
 
-/* ================= MÊS ================= */
+/* ================= FIRESTORE ================= */
 
-const monthSel=document.getElementById("month");
-const yearSel=document.getElementById("year");
-
-function initMonthYear(){
-const months=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-
-monthSel.innerHTML=months.map((m,i)=>`<option value="${i}">${m}</option>`).join("");
-
-const currentYear=new Date().getFullYear();
-yearSel.innerHTML="";
-for(let i=currentYear-5;i<=currentYear+5;i++){
-yearSel.innerHTML+=`<option value="${i}">${i}</option>`;
+async function saveData(){
+const user=auth.currentUser;
+await setDoc(doc(db,"users",user.uid),{
+finances:state.data,
+updatedAt:Date.now()
+});
 }
 
-monthSel.value=state.selected.month;
-yearSel.value=state.selected.year;
-
-monthSel.onchange=()=>{state.selected.month=Number(monthSel.value); saveDB(); render();};
-yearSel.onchange=()=>{state.selected.year=Number(yearSel.value); saveDB(); render();};
+async function loadData(){
+const user=auth.currentUser;
+const snap=await getDoc(doc(db,"users",user.uid));
+if(snap.exists()) state.data=snap.data().finances||{};
 }
 
-/* ================= RECEITAS ================= */
+/* ================= FINANÇAS ================= */
+
+function ensureBucket(){
+if(!state.data["mes"]) state.data["mes"]={incomes:[],expenses:[]};
+return state.data["mes"];
+}
 
 btnAddIncome.onclick=()=>{
-const bucket=ensureBucket();
-const name=incName.value.trim()||"Salário";
-const value=Number(incValue.value);
-if(!value||value<=0) return alert("Valor inválido.");
-
-bucket.incomes.push({id:uid(),name,value});
-incName.value="";
-incValue.value="";
-saveDB(); render();
+const b=ensureBucket();
+b.incomes.push({id:uid(),name:incName.value,value:Number(incValue.value)});
+incName.value=""; incValue.value="";
+saveData(); render();
 };
-
-function removeIncome(id){
-const bucket=ensureBucket();
-bucket.incomes=bucket.incomes.filter(x=>x.id!==id);
-saveDB(); render();
-}
-
-/* ================= DESPESAS ================= */
-
-expCat.addEventListener("change",()=>{
-expParcelas.style.display=expCat.value==="FIXA"?"block":"none";
-});
 
 btnAddExpense.onclick=()=>{
-const name=expName.value.trim()||"Conta";
-const valor=Number(expValue.value);
-const category=expCat.value;
-
-if(!valor||valor<=0) return alert("Valor inválido.");
-
-const origemId=uid();
-
-if(category==="FIXA"){
-const parcelas=Number(expParcelas.value||0);
-if(parcelas<1) return alert("Informe número de parcelas.");
-
-for(let i=0;i<parcelas;i++){
-let mes=state.selected.month+i;
-let ano=state.selected.year;
-while(mes>11){mes-=12;ano++;}
-
-ensureBucket(mes,ano).expenses.push({
-id:uid(),
-origemId,
-name,
-category,
-value:valor,
-parcelaAtual:i+1,
-totalParcelas:parcelas,
-paid:false
-});
-}
-}
-else if(category==="CASA"){
-for(let i=0;i<120;i++){
-let mes=state.selected.month+i;
-let ano=state.selected.year;
-while(mes>11){mes-=12;ano++;}
-
-ensureBucket(mes,ano).expenses.push({
-id:uid(),
-origemId,
-name,
-category,
-value:valor,
-recorrente:true,
-paid:false
-});
-}
-}
-else{
-ensureBucket().expenses.push({
-id:uid(),
-name,
-category,
-value:valor,
-paid:false
-});
-}
-
-expName.value="";
-expValue.value="";
-expParcelas.value="";
-saveDB(); render();
+const b=ensureBucket();
+b.expenses.push({id:uid(),name:expName.value,value:Number(expValue.value),paid:false});
+expName.value=""; expValue.value="";
+saveData(); render();
 };
 
-function togglePaid(id){
-const bucket=ensureBucket();
-const item=bucket.expenses.find(x=>x.id===id);
-if(item){item.paid=!item.paid; saveDB(); render();}
-}
+window.togglePaid=id=>{
+const b=ensureBucket();
+const item=b.expenses.find(x=>x.id===id);
+item.paid=!item.paid;
+saveData(); render();
+};
 
-function removeExpense(id){
-const bucket=ensureBucket();
-bucket.expenses=bucket.expenses.filter(x=>x.id!==id);
-saveDB(); render();
-}
+window.removeExpense=id=>{
+const b=ensureBucket();
+b.expenses=b.expenses.filter(x=>x.id!==id);
+saveData(); render();
+};
 
-function removeParcelamento(origemId){
-if(!confirm("Excluir todas as parcelas?")) return;
-
-Object.keys(state.data).forEach(k=>{
-state.data[k].expenses=
-state.data[k].expenses.filter(e=>e.origemId!==origemId);
-});
-saveDB(); render();
-}
+window.removeIncome=id=>{
+const b=ensureBucket();
+b.incomes=b.incomes.filter(x=>x.id!==id);
+saveData(); render();
+};
 
 /* ================= RENDER ================= */
 
 function render(){
-renderReceitas();
-renderDespesas();
-renderKPIs();
-}
+const b=ensureBucket();
 
-function renderReceitas(){
-const bucket=ensureBucket();
 listReceitas.innerHTML="";
-emptyReceitas.style.display=bucket.incomes.length===0?"block":"none";
-
-bucket.incomes.forEach(r=>{
-const div=document.createElement("div");
-div.className="item";
-div.innerHTML=`
-<div class="title"><strong>${r.name}</strong></div>
-<div class="money">${fmt(r.value)}</div>
-<div class="actions">
-<button class="btn" onclick="removeIncome('${r.id}')">Excluir</button>
+b.incomes.forEach(r=>{
+listReceitas.innerHTML+=`
+<div class="item">
+<strong>${r.name}</strong>
+${fmt(r.value)}
+<button onclick="removeIncome('${r.id}')">Excluir</button>
 </div>`;
-listReceitas.appendChild(div);
 });
-}
 
-function renderDespesas(){
-const bucket=ensureBucket();
 listContas.innerHTML="";
-emptyContas.style.display=bucket.expenses.length===0?"block":"none";
-
-bucket.expenses.forEach(c=>{
-const div=document.createElement("div");
-div.className="item";
-
-div.innerHTML=`
-<div class="title">
+b.expenses.forEach(c=>{
+listContas.innerHTML+=`
+<div class="item">
 <strong>${c.name}</strong>
-<div class="meta">
-<span class="chip ${c.paid?'good':'warn'}">${c.paid?'Pago':'Pendente'}</span>
-${c.totalParcelas?`<span class="chip bad">${c.parcelaAtual}/${c.totalParcelas}</span>`:""}
-${c.recorrente?`<span class="chip good">Recorrente</span>`:""}
-</div>
-</div>
-
-<div class="money">${fmt(c.value)}</div>
-
-<div class="actions">
-<button class="btn" onclick="togglePaid('${c.id}')">
-${c.paid?'Marcar pendente':'Marcar pago'}
-</button>
-
-${c.origemId?`
-<button class="btn secondary" onclick="removeParcelamento('${c.origemId}')">
-Excluir Parcelamento
-</button>`:""}
-
-<button class="btn" onclick="removeExpense('${c.id}')">
-Excluir
-</button>
+${fmt(c.value)}
+<button onclick="togglePaid('${c.id}')">${c.paid?"Pendente":"Pago"}</button>
+<button onclick="removeExpense('${c.id}')">Excluir</button>
 </div>`;
-listContas.appendChild(div);
 });
+
+const totalInc=b.incomes.reduce((a,b)=>a+b.value,0);
+const totalExp=b.expenses.reduce((a,b)=>a+b.value,0);
+
+kpiReceitas.textContent="Receitas: "+fmt(totalInc);
+kpiDespesas.textContent="Despesas: "+fmt(totalExp);
+kpiSaldo.textContent="Saldo: "+fmt(totalInc-totalExp);
 }
 
-function renderKPIs(){
-const bucket=ensureBucket();
-const totalInc=bucket.incomes.reduce((a,b)=>a+b.value,0);
-const totalExp=bucket.expenses.reduce((a,b)=>a+b.value,0);
-const paid=bucket.expenses.filter(x=>x.paid).reduce((a,b)=>a+b.value,0);
-
-kpiReceitas.textContent=fmt(totalInc);
-kpiDespesas.textContent=fmt(totalExp);
-kpiPago.textContent=fmt(paid);
-kpiFalta.textContent=fmt(totalExp-paid);
-kpiSaldo.textContent=fmt(totalInc-totalExp);
-}
-
-/* ================= PDF ================= */
-
-btnPDF.onclick=()=>{
-const { jsPDF }=window.jspdf;
-const doc=new jsPDF();
-
-let y=10;
-doc.text("Finanças Mensais",10,y);
-y+=10;
-
-const bucket=ensureBucket();
-
-bucket.incomes.forEach(r=>{
-doc.text(`Receita: ${r.name} - ${fmt(r.value)}`,10,y);
-y+=8;
-});
-
-bucket.expenses.forEach(c=>{
-doc.text(`Despesa: ${c.name} - ${fmt(c.value)} - ${c.paid?"Pago":"Pendente"}`,10,y);
-y+=8;
-});
-
-doc.save("financas.pdf");
-};
-
-/* ================= START ================= */
-
-autoLogin();
 </script>
-
 
 </body>
 </html>
