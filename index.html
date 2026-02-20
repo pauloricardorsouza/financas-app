@@ -675,8 +675,29 @@
     const db = getFirestore(app);
     enableIndexedDbPersistence(db).catch(()=>{});
 
-    // Other code for Firebase authentication and Firestore database management.
+    // Função para remover uma receita
+function removeIncome(id) {
+  const bucket = ensureBucket();
+  bucket.incomes = bucket.incomes.filter(income => income.id !== id);
+  saveDB();
+  render(); // Re-renderiza a lista para refletir a exclusão
+}
+    // Função para remover uma despesa
+function removeExpense(id) {
+  const bucket = ensureBucket();
+  bucket.expenses = bucket.expenses.filter(expense => expense.id !== id);
+  saveDB();
+  render(); // Re-renderiza a lista para refletir a exclusão
+}
+    // Função para remover parcelamento
+function removeParcelamento(origemId) {
+  const bucket = ensureBucket();
+  bucket.expenses = bucket.expenses.filter(expense => expense.origemId !== origemId);
+  saveDB();
+  render(); // Re-renderiza a lista para refletir a exclusão do parcelamento
+}
   </script>
 </body>
 </html>
+
 
