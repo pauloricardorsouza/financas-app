@@ -346,315 +346,315 @@
   </div>
 
   <script>
-    /* ================= UTIL ================= */
-    const fmt = n => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-    const uid = () => Math.random().toString(36).slice(2, 10);
+  /* ================= UTIL ================= */
+const fmt = n => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const uid = () => Math.random().toString(36).slice(2, 10);
 
-    let db = null;
-    let currentUser = null;
+let db = null;
+let currentUser = null;
 
-    let state = {
-      selected: { month: new Date().getMonth(), year: new Date().getFullYear() },
-      data: {}
-    };
+let state = {
+  selected: { month: new Date().getMonth(), year: new Date().getFullYear() },
+  data: {}
+};
 
-    function keyMY(m, y) {
-      return `${y}-${String(m + 1).padStart(2, "0")}`;
+function keyMY(m, y) {
+  return `${y}-${String(m + 1).padStart(2, "0")}`;
+}
+
+function ensureBucket(m = state.selected.month, y = state.selected.year) {
+  const k = keyMY(m, y);
+  if (!state.data[k]) state.data[k] = { incomes: [], expenses: [] };
+  return state.data[k];
+}
+
+/* ================= LOGIN ================= */
+function getUsers() {
+  return JSON.parse(localStorage.getItem("usuarios_financas") || "[]");
+}
+
+function saveUsers(users) {
+  localStorage.setItem("usuarios_financas", JSON.stringify(users));
+}
+
+btnRegister.onclick = () => {
+  const email = loginEmail.value.trim();
+  const pass = loginPass.value.trim();
+  if (!email || !pass) return alert("Preencha tudo.");
+  let users = getUsers();
+  if (users.find(u => u.email === email)) return alert("Usuário já existe.");
+  users.push({
+    email,
+    pass,
+    avatar: `https://ui-avatars.com/api/?name=${email}&background=6ea8ff&color=fff`
+  });
+  saveUsers(users);
+  alert("Usuário criado!");
+};
+
+btnLogin.onclick = () => {
+  const email = loginEmail.value.trim();
+  const pass = loginPass.value.trim();
+  const user = getUsers().find(u => u.email === email && u.pass === pass);
+  if (!user) return alert("Credenciais inválidas.");
+  currentUser = email;
+  localStorage.setItem("usuario_logado", email);
+  document.getElementById("loginScreen").style.display = "none";
+  initDBForUser();
+};
+
+function autoLogin() {
+  const saved = localStorage.getItem("usuario_logado");
+  if (saved) {
+    currentUser = saved;
+    document.getElementById("loginScreen").style.display = "none";
+    initDBForUser();
+  }
+}
+
+function logout() {
+  localStorage.removeItem("usuario_logado");
+  location.reload();
+}
+
+/* ================= DATABASE ================= */
+function initDBForUser() {
+  const request = indexedDB.open("financasDB_" + currentUser, 1);
+  request.onupgradeneeded = e => {
+    db = e.target.result;
+    if (!db.objectStoreNames.contains("meses")) {
+      db.createObjectStore("meses", { keyPath: "id" });
     }
+  };
+  request.onsuccess = e => {
+    db = e.target.result;
+    loadDB();
+    loadUserInfo();
+    startInactivityTimer();
+  };
+}
 
-    function ensureBucket(m = state.selected.month, y = state.selected.year) {
-      const k = keyMY(m, y);
-      if (!state.data[k]) state.data[k] = { incomes: [], expenses: [] };
-      return state.data[k];
+function saveDB() {
+  const tx = db.transaction(["meses"], "readwrite");
+  tx.objectStore("meses").put({ id: "dados_financas", data: state.data, selected: state.selected });
+}
+
+function loadDB() {
+  const tx = db.transaction(["meses"], "readonly");
+  const request = tx.objectStore("meses").get("dados_financas");
+  request.onsuccess = () => {
+    if (request.result) {
+      state.data = request.result.data || {};
+      state.selected = request.result.selected || state.selected;
     }
+    initMonthYear();
+    render();
+  };
+}
 
-    /* ================= LOGIN ================= */
-    function getUsers() {
-      return JSON.parse(localStorage.getItem("usuarios_financas") || "[]");
-    }
+/* ================= DISPLAY USER INFO ================= */
+function loadUserInfo() {
+  const users = getUsers();
+  const user = users.find(u => u.email === currentUser);
+  if (!user) return;
+  document.getElementById("userName").textContent = currentUser;
+  document.getElementById("userAvatar").src = user.avatar;
+}
 
-    function saveUsers(users) {
-      localStorage.setItem("usuarios_financas", JSON.stringify(users));
-    }
+/* ================= INACTIVITY TIMER ================= */
+let inactivityTimer;
+const TIME_LIMIT = 10 * 60 * 1000;
 
-    btnRegister.onclick = () => {
-      const email = loginEmail.value.trim();
-      const pass = loginPass.value.trim();
-      if (!email || !pass) return alert("Preencha tudo.");
-      let users = getUsers();
-      if (users.find(u => u.email === email)) return alert("Usuário já existe.");
-      users.push({
-        email,
-        pass,
-        avatar: `https://ui-avatars.com/api/?name=${email}&background=6ea8ff&color=fff`
-      });
-      saveUsers(users);
-      alert("Usuário criado!");
-    };
+function resetTimer() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    alert("Sessão expirada por inatividade.");
+    logout();
+  }, TIME_LIMIT);
+}
 
-    btnLogin.onclick = () => {
-      const email = loginEmail.value.trim();
-      const pass = loginPass.value.trim();
-      const user = getUsers().find(u => u.email === email && u.pass === pass);
-      if (!user) return alert("Credenciais inválidas.");
-      currentUser = email;
-      localStorage.setItem("usuario_logado", email);
-      document.getElementById("loginScreen").style.display = "none";
-      initDBForUser();
-    };
+function startInactivityTimer() {
+  ["click", "mousemove", "keypress", "scroll", "touchstart"]
+    .forEach(event => document.addEventListener(event, resetTimer));
+  resetTimer();
+}
 
-    function autoLogin() {
-      const saved = localStorage.getItem("usuario_logado");
-      if (saved) {
-        currentUser = saved;
-        document.getElementById("loginScreen").style.display = "none";
-        initDBForUser();
-      }
-    }
+/* ================= MONTH SELECTION ================= */
+const monthSel = document.getElementById("month");
+const yearSel = document.getElementById("year");
 
-    function logout() {
-      localStorage.removeItem("usuario_logado");
-      location.reload();
-    }
+function initMonthYear() {
+  const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  monthSel.innerHTML = months.map((m, i) => `<option value="${i}">${m}</option>`).join("");
+  const currentYear = new Date().getFullYear();
+  yearSel.innerHTML = "";
+  for (let i = currentYear - 5; i <= currentYear + 5; i++) {
+    yearSel.innerHTML += `<option value="${i}">${i}</option>`;
+  }
+  monthSel.value = state.selected.month;
+  yearSel.value = state.selected.year;
+  monthSel.onchange = () => {
+    state.selected.month = Number(monthSel.value);
+    saveDB();
+    render();
+  };
+  yearSel.onchange = () => {
+    state.selected.year = Number(yearSel.value);
+    saveDB();
+    render();
+  };
+}
 
-    /* ================= DATABASE ================= */
-    function initDBForUser() {
-      const request = indexedDB.open("financasDB_" + currentUser, 1);
-      request.onupgradeneeded = e => {
-        db = e.target.result;
-        if (!db.objectStoreNames.contains("meses")) {
-          db.createObjectStore("meses", { keyPath: "id" });
-        }
-      };
-      request.onsuccess = e => {
-        db = e.target.result;
-        loadDB();
-        loadUserInfo();
-        startInactivityTimer();
-      };
-    }
+/* ================= RECEITAS ================= */
+btnAddIncome.onclick = () => {
+  const bucket = ensureBucket();
+  const name = incName.value.trim() || "Salário";
+  const value = Number(incValue.value);
+  if (!value || value <= 0) return alert("Valor inválido.");
+  bucket.incomes.push({ id: uid(), name, value });
+  incName.value = "";
+  incValue.value = "";
+  saveDB();
+  render();
+};
 
-    function saveDB() {
-      const tx = db.transaction(["meses"], "readwrite");
-      tx.objectStore("meses").put({ id: "dados_financas", data: state.data, selected: state.selected });
-    }
+/* ================= DESPESAS ================= */
+expCat.addEventListener("change", () => {
+  expParcelas.style.display = expCat.value === "FIXA" ? "block" : "none";
+});
 
-    function loadDB() {
-      const tx = db.transaction(["meses"], "readonly");
-      const request = tx.objectStore("meses").get("dados_financas");
-      request.onsuccess = () => {
-        if (request.result) {
-          state.data = request.result.data || {};
-          state.selected = request.result.selected || state.selected;
-        }
-        initMonthYear();
-        render();
-      };
-    }
-
-    /* ================= DISPLAY USER INFO ================= */
-    function loadUserInfo() {
-      const users = getUsers();
-      const user = users.find(u => u.email === currentUser);
-      if (!user) return;
-      document.getElementById("userName").textContent = currentUser;
-      document.getElementById("userAvatar").src = user.avatar;
-    }
-
-    /* ================= INACTIVITY TIMER ================= */
-    let inactivityTimer;
-    const TIME_LIMIT = 10 * 60 * 1000;
-
-    function resetTimer() {
-      clearTimeout(inactivityTimer);
-      inactivityTimer = setTimeout(() => {
-        alert("Sessão expirada por inatividade.");
-        logout();
-      }, TIME_LIMIT);
-    }
-
-    function startInactivityTimer() {
-      ["click", "mousemove", "keypress", "scroll", "touchstart"]
-        .forEach(event => document.addEventListener(event, resetTimer));
-      resetTimer();
-    }
-
-    /* ================= MONTH SELECTION ================= */
-    const monthSel = document.getElementById("month");
-    const yearSel = document.getElementById("year");
-
-    function initMonthYear() {
-      const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-      monthSel.innerHTML = months.map((m, i) => `<option value="${i}">${m}</option>`).join("");
-      const currentYear = new Date().getFullYear();
-      yearSel.innerHTML = "";
-      for (let i = currentYear - 5; i <= currentYear + 5; i++) {
-        yearSel.innerHTML += `<option value="${i}">${i}</option>`;
-      }
-      monthSel.value = state.selected.month;
-      yearSel.value = state.selected.year;
-      monthSel.onchange = () => {
-        state.selected.month = Number(monthSel.value);
-        saveDB();
-        render();
-      };
-      yearSel.onchange = () => {
-        state.selected.year = Number(yearSel.value);
-        saveDB();
-        render();
-      };
-    }
-
-    /* ================= RECEITAS ================= */
-    btnAddIncome.onclick = () => {
-      const bucket = ensureBucket();
-      const name = incName.value.trim() || "Salário";
-      const value = Number(incValue.value);
-      if (!value || value <= 0) return alert("Valor inválido.");
-      bucket.incomes.push({ id: uid(), name, value });
-      incName.value = "";
-      incValue.value = "";
-      saveDB();
-      render();
-    };
-
-    /* ================= DESPESAS ================= */
-    expCat.addEventListener("change", () => {
-      expParcelas.style.display = expCat.value === "FIXA" ? "block" : "none";
-    });
-
-    btnAddExpense.onclick = () => {
-      const name = expName.value.trim() || "Conta";
-      const valor = Number(expValue.value);
-      const category = expCat.value;
-      if (!valor || valor <= 0) return alert("Valor inválido.");
-      const origemId = uid();
-      if (category === "FIXA") {
-        const parcelas = Number(expParcelas.value || 0);
-        if (parcelas < 1) return alert("Informe número de parcelas.");
-        for (let i = 0; i < parcelas; i++) {
-          let mes = state.selected.month + i;
-          let ano = state.selected.year;
-          while (mes > 11) { mes -= 12; ano++; }
-          ensureBucket(mes, ano).expenses.push({
-            id: uid(),
-            origemId,
-            name,
-            category,
-            value: valor,
-            parcelaAtual: i + 1,
-            totalParcelas: parcelas,
-            paid: false
-          });
-        }
-      } else if (category === "CASA") {
-        for (let i = 0; i < 120; i++) {
-          let mes = state.selected.month + i;
-          let ano = state.selected.year;
-          while (mes > 11) { mes -= 12; ano++; }
-          ensureBucket(mes, ano).expenses.push({
-            id: uid(),
-            origemId,
-            name,
-            category,
-            value: valor,
-            recorrente: true,
-            paid: false
-          });
-        }
-      } else {
-        ensureBucket().expenses.push({ id: uid(), name, category, value: valor, paid: false });
-      }
-      expName.value = "";
-      expValue.value = "";
-      expParcelas.value = "";
-      saveDB();
-      render();
-    };
-
-    /* ================= RENDER ================= */
-    function render() {
-      renderReceitas();
-      renderDespesas();
-      renderKPIs();
-    }
-
-    function renderReceitas() {
-      const bucket = ensureBucket();
-      listReceitas.innerHTML = "";
-      emptyReceitas.style.display = bucket.incomes.length === 0 ? "block" : "none";
-      bucket.incomes.forEach(r => {
-        const div = document.createElement("div");
-        div.className = "item";
-        div.innerHTML = `
-          <div class="title"><strong>${r.name}</strong></div>
-          <div class="money">${fmt(r.value)}</div>
-          <div class="actions">
-            <button class="btn" onclick="removeIncome('${r.id}')">Excluir</button>
-          </div>`;
-        listReceitas.appendChild(div);
+btnAddExpense.onclick = () => {
+  const name = expName.value.trim() || "Conta";
+  const valor = Number(expValue.value);
+  const category = expCat.value;
+  if (!valor || valor <= 0) return alert("Valor inválido.");
+  const origemId = uid();
+  if (category === "FIXA") {
+    const parcelas = Number(expParcelas.value || 0);
+    if (parcelas < 1) return alert("Informe número de parcelas.");
+    for (let i = 0; i < parcelas; i++) {
+      let mes = state.selected.month + i;
+      let ano = state.selected.year;
+      while (mes > 11) { mes -= 12; ano++; }
+      ensureBucket(mes, ano).expenses.push({
+        id: uid(),
+        origemId,
+        name,
+        category,
+        value: valor,
+        parcelaAtual: i + 1,
+        totalParcelas: parcelas,
+        paid: false
       });
     }
-
-    function renderDespesas() {
-      const bucket = ensureBucket();
-      listContas.innerHTML = "";
-      emptyContas.style.display = bucket.expenses.length === 0 ? "block" : "none";
-      bucket.expenses.forEach(c => {
-        const div = document.createElement("div");
-        div.className = "item";
-        div.innerHTML = `
-          <div class="title">
-            <strong>${c.name}</strong>
-            <div class="meta">
-              <span class="chip ${c.paid ? 'good' : 'warn'}">${c.paid ? 'Pago' : 'Pendente'}</span>
-              ${c.totalParcelas ? `<span class="chip bad">${c.parcelaAtual}/${c.totalParcelas}</span>` : ""}
-              ${c.recorrente ? `<span class="chip good">Recorrente</span>` : ""}
-            </div>
-          </div>
-          <div class="money">${fmt(c.value)}</div>
-          <div class="actions">
-            <button class="btn" onclick="togglePaid('${c.id}')">${c.paid ? 'Marcar pendente' : 'Marcar pago'}</button>
-            ${c.origemId ? `<button class="btn secondary" onclick="removeParcelamento('${c.origemId}')">Excluir Parcelamento</button>` : ""}
-            <button class="btn" onclick="removeExpense('${c.id}')">Excluir</button>
-          </div>`;
-        listContas.appendChild(div);
+  } else if (category === "CASA") {
+    for (let i = 0; i < 120; i++) {
+      let mes = state.selected.month + i;
+      let ano = state.selected.year;
+      while (mes > 11) { mes -= 12; ano++; }
+      ensureBucket(mes, ano).expenses.push({
+        id: uid(),
+        origemId,
+        name,
+        category,
+        value: valor,
+        recorrente: true,
+        paid: false
       });
     }
+  } else {
+    ensureBucket().expenses.push({ id: uid(), name, category, value: valor, paid: false });
+  }
+  expName.value = "";
+  expValue.value = "";
+  expParcelas.value = "";
+  saveDB();
+  render();
+};
 
-    function renderKPIs() {
-      const bucket = ensureBucket();
-      const totalInc = bucket.incomes.reduce((a, b) => a + b.value, 0);
-      const totalExp = bucket.expenses.reduce((a, b) => a + b.value, 0);
-      const paid = bucket.expenses.filter(x => x.paid).reduce((a, b) => a + b.value, 0);
-      kpiReceitas.textContent = fmt(totalInc);
-      kpiDespesas.textContent = fmt(totalExp);
-      kpiPago.textContent = fmt(paid);
-      kpiFalta.textContent = fmt(totalExp - paid);
-      kpiSaldo.textContent = fmt(totalInc - totalExp);
-    }
+/* ================= RENDER ================= */
+function render() {
+  renderReceitas();
+  renderDespesas();
+  renderKPIs();
+}
 
-    /* ================= PDF ================= */
-    btnPDF.onclick = () => {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      let y = 10;
-      doc.text("Finanças Mensais", 10, y);
-      y += 10;
-      const bucket = ensureBucket();
-      bucket.incomes.forEach(r => {
-        doc.text(`Receita: ${r.name} - ${fmt(r.value)}`, 10, y);
-        y += 8;
-      });
-      bucket.expenses.forEach(c => {
-        doc.text(`Despesa: ${c.name} - ${fmt(c.value)} - ${c.paid ? "Pago" : "Pendente"}`, 10, y);
-        y += 8;
-      });
-      doc.save("financas.pdf");
-    };
+function renderReceitas() {
+  const bucket = ensureBucket();
+  listReceitas.innerHTML = "";
+  emptyReceitas.style.display = bucket.incomes.length === 0 ? "block" : "none";
+  bucket.incomes.forEach(r => {
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <div class="title"><strong>${r.name}</strong></div>
+      <div class="money">${fmt(r.value)}</div>
+      <div class="actions">
+        <button class="btn" onclick="removeIncome('${r.id}')">Excluir</button>
+      </div>`;
+    listReceitas.appendChild(div);
+  });
+}
 
-    /* ================= START ================= */
-    autoLogin();
+function renderDespesas() {
+  const bucket = ensureBucket();
+  listContas.innerHTML = "";
+  emptyContas.style.display = bucket.expenses.length === 0 ? "block" : "none";
+  bucket.expenses.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <div class="title">
+        <strong>${c.name}</strong>
+        <div class="meta">
+          <span class="chip ${c.paid ? 'good' : 'warn'}">${c.paid ? 'Pago' : 'Pendente'}</span>
+          ${c.totalParcelas ? `<span class="chip bad">${c.parcelaAtual}/${c.totalParcelas}</span>` : ""}
+          ${c.recorrente ? `<span class="chip good">Recorrente</span>` : ""}
+        </div>
+      </div>
+      <div class="money">${fmt(c.value)}</div>
+      <div class="actions">
+        <button class="btn" onclick="togglePaid('${c.id}')">${c.paid ? 'Marcar pendente' : 'Marcar pago'}</button>
+        ${c.origemId ? `<button class="btn secondary" onclick="removeParcelamento('${c.origemId}')">Excluir Parcelamento</button>` : ""}
+        <button class="btn" onclick="removeExpense('${c.id}')">Excluir</button>
+      </div>`;
+    listContas.appendChild(div);
+  });
+}
+
+function renderKPIs() {
+  const bucket = ensureBucket();
+  const totalInc = bucket.incomes.reduce((a, b) => a + b.value, 0);
+  const totalExp = bucket.expenses.reduce((a, b) => a + b.value, 0);
+  const paid = bucket.expenses.filter(x => x.paid).reduce((a, b) => a + b.value, 0);
+  kpiReceitas.textContent = fmt(totalInc);
+  kpiDespesas.textContent = fmt(totalExp);
+  kpiPago.textContent = fmt(paid);
+  kpiFalta.textContent = fmt(totalExp - paid);
+  kpiSaldo.textContent = fmt(totalInc - totalExp);
+}
+
+/* ================= PDF ================= */
+btnPDF.onclick = () => {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y = 10;
+  doc.text("Finanças Mensais", 10, y);
+  y += 10;
+  const bucket = ensureBucket();
+  bucket.incomes.forEach(r => {
+    doc.text(`Receita: ${r.name} - ${fmt(r.value)}`, 10, y);
+    y += 8;
+  });
+  bucket.expenses.forEach(c => {
+    doc.text(`Despesa: ${c.name} - ${fmt(c.value)} - ${c.paid ? "Pago" : "Pendente"}`, 10, y);
+    y += 8;
+  });
+  doc.save("financas.pdf");
+};
+
+/* ================= START ================= */
+autoLogin();
   </script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
@@ -699,5 +699,6 @@ function removeParcelamento(origemId) {
   </script>
 </body>
 </html>
+
 
 
