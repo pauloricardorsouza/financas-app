@@ -1,13 +1,10 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Finanças Mensais</title>
-
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0b1220">
-<style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Finanças Mensais</title>
+  <style>
     :root{
       --bg:#0b1220;
       --card:#0f1a2e;
@@ -381,394 +378,120 @@
 </head>
 
 <body>
+  <div class="app">
+    <!-- AQUI INICIAMOS O CÓDIGO HTML, com as modificações CSS integradas -->
+    <div class="topbar">
+      <div class="toprow">
+        <div class="brand">
+          <div class="logo"></div>
+          <div>
+            <h1>Finanças Mensais</h1>
+            <p>Controle de salários, contas e saldo do mês</p>
+          </div>
+        </div>
 
-<!-- ================= LOGIN ================= -->
-
-<div id="loginScreen" style="
-position:fixed;
-inset:0;
-background:#0b1220;
-display:flex;
-align-items:center;
-justify-content:center;
-z-index:999;">
-
-<div style="
-background:#111f36;
-padding:30px;
-border-radius:20px;
-width:320px;
-display:flex;
-flex-direction:column;
-gap:15px;">
-
-<h3 style="text-align:center;">Controle de Finanças</h3>
-
-<input id="loginEmail" placeholder="Email">
-<input id="loginPass" type="password" placeholder="Senha">
-
-<div style="display:flex;align-items:center;gap:6px;font-size:12px;">
-<input type="checkbox" id="showPass">
-<label for="showPass">Mostrar senha</label>
-</div>
-
-<button id="btnLogin" class="btn">Entrar</button>
-<button id="btnRegister" class="btn secondary">Cadastrar</button>
-<button onclick="resetPassword()" class="btn secondary">
-Esqueci a senha
-</button>
-
-</div>
-</div>
-
-<!-- ================= APP ================= -->
-
-<div class="app">
-
-<div class="topbar">
-<div class="toprow">
-
-<div id="userBox" style="display:flex;align-items:center;gap:10px;">
-<img id="userAvatar"
-style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid #6ea8ff;">
-<span id="userName" style="font-size:18px;"></span>
-</div>
-
-<div class="controls">
-<button class="btn secondary" id="btnPDF">Exportar PDF</button>
-<button class="btn secondary" onclick="logout()">🚪 Sair</button>
-</div>
-
-</div>
-</div>
-
-<div class="grid">
-
-<div class="card">
-<div class="cardHeader">
-<h2>Resumo</h2>
-</div>
-<div class="cardBody">
-<div id="kpiReceitas"></div>
-<div id="kpiDespesas"></div>
-<div id="kpiSaldo"></div>
-</div>
-</div>
-
-<div class="card">
-<div class="cardHeader">
-<h2>Adicionar Receita</h2>
-</div>
-<div class="cardBody">
-<input id="incName" placeholder="Nome">
-<input id="incValue" type="number" placeholder="Valor">
-<button id="btnAddIncome" class="btn">Adicionar</button>
-<div id="listReceitas"></div>
-</div>
-</div>
-
-<div class="card">
-<div class="cardHeader">
-<h2>Adicionar Despesa</h2>
-</div>
-<div class="cardBody">
-<input id="expName" placeholder="Nome">
-<input id="expValue" type="number" placeholder="Valor">
-<button id="btnAddExpense" class="btn">Adicionar</button>
-<div id="listContas"></div>
-</div>
-</div>
-
-</div>
-</div>
-<script type="module">
-
-/* ================= FIREBASE ================= */
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  getDoc,
-  enableIndexedDbPersistence
-} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
-  authDomain: "financasmensaispaulods.firebaseapp.com",
-  projectId: "financasmensaispaulods",
-  storageBucket: "financasmensaispaulods.firebasestorage.app",
-  messagingSenderId: "168499253940",
-  appId: "1:168499253940:web:8d14795ad8195858283de1"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-enableIndexedDbPersistence(db).catch(()=>{});
-
-/* ================= UTIL ================= */
-
-const fmt = n => (Number(n)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-const uid = () => Math.random().toString(36).slice(2,10);
-
-let state={data:{}};
-let activeFilter="ALL";
-
-/* ================= LOGIN ================= */
-
-btnLogin.onclick=async()=>{
-  try{
-    await signInWithEmailAndPassword(auth,loginEmail.value.trim(),loginPass.value.trim());
-  }catch(e){alert(e.message);}
-};
-
-btnRegister.onclick=async()=>{
-  try{
-    const cred=await createUserWithEmailAndPassword(auth,loginEmail.value.trim(),loginPass.value.trim());
-    await sendEmailVerification(cred.user);
-    alert("Verifique seu e-mail.");
-  }catch(e){alert(e.message);}
-};
-
-window.resetPassword=async()=>{
-  await sendPasswordResetEmail(auth,loginEmail.value.trim());
-  alert("E-mail enviado.");
-};
-
-showPass.onchange=function(){
-  loginPass.type=this.checked?"text":"password";
-};
-
-/* ================= AUTH ================= */
-
-onAuthStateChanged(auth,async user=>{
-  if(user){
-    if(!user.emailVerified){
-      alert("Verifique seu e-mail.");
-      await signOut(auth);
-      return;
-    }
-    loginScreen.style.display="none";
-    await loadData();
-    render();
-    startTimer();
-  }else{
-    loginScreen.style.display="flex";
-  }
-});
-
-/* ================= LOGOUT ================= */
-
-window.logout=async()=>await signOut(auth);
-
-/* ================= TIMEOUT ================= */
-
-let timer;
-function startTimer(){
-  document.addEventListener("click",resetTimer);
-  resetTimer();
-}
-function resetTimer(){
-  clearTimeout(timer);
-  timer=setTimeout(()=>{alert("Sessão expirada");logout();},10*60*1000);
-}
-
-/* ================= FIRESTORE ================= */
-
-async function saveData(){
-  const user=auth.currentUser;
-  await setDoc(doc(db,"users",user.uid),{
-    finances:state.data
-  });
-}
-
-async function loadData(){
-  const user=auth.currentUser;
-  const snap=await getDoc(doc(db,"users",user.uid));
-  if(snap.exists()) state.data=snap.data().finances||{};
-}
-
-/* ================= MÊS ================= */
-
-function getKey(){
-  const y=year.value;
-  const m=month.value;
-  return `${y}-${m}`;
-}
-
-function ensureBucket(){
-  const key=getKey();
-  if(!state.data[key]) state.data[key]={incomes:[],expenses:[]};
-  return state.data[key];
-}
-
-/* ================= RECEITAS ================= */
-
-btnAddIncome.onclick=()=>{
-  const valor=Number(incValue.value);
-  if(!valor) return;
-
-  const b=ensureBucket();
-  b.incomes.push({id:uid(),name:incName.value,value:valor});
-
-  incName.value="";
-  incValue.value="";
-  saveData();render();
-};
-
-/* ================= DESPESAS ================= */
-
-btnAddExpense.onclick=()=>{
-  const valor=Number(expValue.value);
-  if(!valor) return;
-
-  const b=ensureBucket();
-
-  if(expParcelado.checked){
-    const parcelas=Number(expParcelas.value);
-    const mensal=valor/parcelas;
-    for(let i=0;i<parcelas;i++){
-      b.expenses.push({
-        id:uid(),
-        name:expName.value+" (Parcela)",
-        value:mensal,
-        paid:false,
-        cat:expCat.value
-      });
-    }
-  }else{
-    b.expenses.push({
-      id:uid(),
-      name:expName.value,
-      value:valor,
-      paid:false,
-      cat:expCat.value
-    });
-  }
-
-  expName.value="";
-  expValue.value="";
-  expParcelas.value="";
-  saveData();render();
-};
-
-window.togglePaid=id=>{
-  const b=ensureBucket();
-  const item=b.expenses.find(x=>x.id===id);
-  item.paid=!item.paid;
-  saveData();render();
-};
-
-window.removeExpense=id=>{
-  const b=ensureBucket();
-  b.expenses=b.expenses.filter(x=>x.id!==id);
-  saveData();render();
-};
-
-window.removeIncome=id=>{
-  const b=ensureBucket();
-  b.incomes=b.incomes.filter(x=>x.id!==id);
-  saveData();render();
-};
-
-/* ================= FILTROS ================= */
-
-tabs.onclick=e=>{
-  if(e.target.classList.contains("tab")){
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-    e.target.classList.add("active");
-    activeFilter=e.target.dataset.cat;
-    render();
-  }
-};
-
-/* ================= RENDER ================= */
-
-function render(){
-  const b=ensureBucket();
-
-  listReceitas.innerHTML="";
-  b.incomes.forEach(r=>{
-    listReceitas.innerHTML+=`
-    <div class="item">
-      <div class="title"><strong>${r.name}</strong></div>
-      <div class="money">${fmt(r.value)}</div>
-      <div class="actions">
-        <button class="btn" onclick="removeIncome('${r.id}')">Excluir</button>
-      </div>
-    </div>`;
-  });
-
-  listContas.innerHTML="";
-  let expenses=b.expenses;
-
-  if(activeFilter==="PENDENTE") expenses=expenses.filter(x=>!x.paid);
-  if(activeFilter==="PAGO") expenses=expenses.filter(x=>x.paid);
-  if(["FIXA","CASA","DIVERSOS"].includes(activeFilter))
-    expenses=expenses.filter(x=>x.cat===activeFilter);
-
-  expenses.forEach(c=>{
-    listContas.innerHTML+=`
-    <div class="item">
-      <div class="title">
-        <strong>${c.name}</strong>
-        <div class="meta">
-          <span class="chip ${c.paid?'good':'warn'}">${c.paid?'Pago':'Pendente'}</span>
+        <div class="controls">
+          <div class="pill">
+            <label>Mês</label>
+            <select id="month"></select>
+          </div>
+          <div class="pill">
+            <label>Ano</label>
+            <select id="year"></select>
+          </div>
+          <button class="btn secondary" id="btnPDF">Exportar PDF</button>
         </div>
       </div>
-      <div class="money">${fmt(c.value)}</div>
-      <div class="actions">
-        <button class="btn" onclick="togglePaid('${c.id}')">
-          ${c.paid?"Marcar pendente":"Marcar pago"}
-        </button>
-        <button class="btn" onclick="removeExpense('${c.id}')">
-          Excluir
-        </button>
+    </div>
+
+    <div class="grid">
+      <!-- Principal -->
+      <div class="card">
+        <div class="cardHeader">
+          <div>
+            <h2>Resumo do mês</h2>
+            <div class="hint">Receitas, despesas, pagos e pendências</div>
+          </div>
+          <span class="badge" id="badgeStatus">—</span>
+        </div>
+
+        <div class="cardBody">
+          <div class="summary">
+            <div class="kpi">
+              <div class="label">💼 Total receitas</div>
+              <div class="value" id="kpiReceitas">R$ 0,00</div>
+            </div>
+            <div class="kpi">
+              <div class="label">🧾 Total despesas</div>
+              <div class="value" id="kpiDespesas">R$ 0,00</div>
+            </div>
+            <div class="kpi">
+              <div class="label">✅ Já pago</div>
+              <div class="value" id="kpiPago">R$ 0,00</div>
+            </div>
+            <div class="kpi">
+              <div class="label">⏳ Falta pagar</div>
+              <div class="value" id="kpiFalta">R$ 0,00</div>
+            </div>
+            <div class="kpi">
+              <div class="label">⚖️ Saldo</div>
+              <div class="value" id="kpiSaldo">R$ 0,00</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs" id="tabs">
+          <div class="tab active" data-cat="ALL">Todas</div>
+          <div class="tab" data-cat="FIXA">Fixas</div>
+          <div class="tab" data-cat="CASA">Fixas da Casa</div>
+          <div class="tab" data-cat="DIVERSOS">Diversos</div>
+          <div class="tab" data-cat="PENDENTE">Somente pendentes</div>
+          <div class="tab" data-cat="PAGO">Somente pagas</div>
+        </div>
+
+        <div class="cardBody">
+          <div class="list" id="listContas"></div>
+          <div id="emptyContas" class="empty" style="display:none;">
+            Nenhuma conta cadastrada neste mês. Use “Adicionar conta” ao lado.
+          </div>
+        </div>
       </div>
-    </div>`;
-  });
 
-  const totalInc=b.incomes.reduce((a,b)=>a+b.value,0);
-  const totalExp=b.expenses.reduce((a,b)=>a+b.value,0);
-  const pago=b.expenses.filter(x=>x.paid).reduce((a,b)=>a+b.value,0);
-  const falta=totalExp-pago;
+      <!-- Lateral: ações -->
+      <div>
+        <div class="card" style="margin-bottom:14px;">
+          <div class="cardHeader">
+            <div>
+              <h2>Receitas (salários)</h2>
+              <div class="hint">Adicione uma ou várias receitas do mês</div>
+            </div>
+          </div>
+          <div class="cardBody">
+            <div class="formGrid">
+              <input id="incName" placeholder="Nome (ex: Salário)" class="row2" />
+              <input id="incValue" type="number" step="0.01" placeholder="Valor (R$)" />
+              <button class="btn" id="btnAddIncome">+ Adicionar</button>
+            </div>
 
-  kpiReceitas.textContent=fmt(totalInc);
-  kpiDespesas.textContent=fmt(totalExp);
-  kpiPago.textContent=fmt(pago);
-  kpiFalta.textContent=fmt(falta);
-  kpiSaldo.textContent=fmt(totalInc-totalExp);
+            <div style="height:10px"></div>
+            <div class="list" id="listReceitas"></div>
+            <div id="emptyReceitas" class="empty" style="display:none;">
+              Nenhuma receita cadastrada.
+            </div>
+          </div>
+        </div>
 
-  badgeStatus.textContent=totalInc-totalExp>=0?"Positivo":"Negativo";
-}
+        <div class="card">
+          <div class="cardHeader">
+            <div>
+              <h2>Despesas</h2>
+              <div class="hint">Fixas, casa, diversos e parcelas</div>
+            </div>
+          </div>
+          <div class="cardBody">
+            <div class="formGrid">
+              <input id="expName" placeholder="Nome (ex: Internet)" class="row2" />
+              <input id="expValue" type="number" step="0.01" placeholder="Valor total (R$)" />
 
-/* ================= EXPORT ================= */
-
-btnPDF.onclick=()=>{
-  overlay.classList.add("show");
-  exportBox.value=JSON.stringify(state.data,null,2);
-};
-
-btnCloseModal.onclick=()=>overlay.classList.remove("show");
-btnCopy.onclick=()=>{
-  navigator.clipboard.writeText(exportBox.value);
-  alert("Copiado!");
-};
-
-</script>
-
-
-</body>
-</html>
-
+              <select id="expCat">
+               
