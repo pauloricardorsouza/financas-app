@@ -1,704 +1,1036 @@
-<!doctype html>
-<html lang="pt-br">
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Finanças Mensais</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0b1220">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Financeiro</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root {
-      --bg: #0b1220;
-      --card: #0f1a2e;
-      --card2: #111f36;
-      --muted: #95a3b8;
-      --text: #e8eefc;
-      --line: rgba(255,255,255,.08);
-      --good: #31d0aa;
-      --bad: #ff5c7a;
-      --warn: #ffd166;
-      --accent: #6ea8ff;
-      --shadow: 0 12px 30px rgba(0,0,0,.35);
-      --radius: 18px;
-      --radius2: 14px;
-      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue";
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: var(--font);
-      background: radial-gradient(900px 450px at 20% 0%, rgba(110,168,255,.22), transparent 60%), 
-                  radial-gradient(700px 450px at 90% 10%, rgba(49,208,170,.18), transparent 55%), 
-                  radial-gradient(900px 550px at 50% 120%, rgba(255,92,122,.10), transparent 60%), var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-    }
-    a { color: inherit; }
-    .app {
-      max-width: 1080px;
-      margin: 0 auto;
-      padding: 18px 14px 28px;
-    }
-    .topbar {
-      top: 0;
-      z-index: 10;
-      backdrop-filter: blur(14px);
-      background: rgba(11,18,32,.72);
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      padding: 14px 14px;
-      box-shadow: var(--shadow);
-    }
-    .toprow {
+    * { margin:0; padding:0; box-sizing:border-box; font-family: Arial, Helvetica, sans-serif; }
+    body { background: #0f172a; color: #fff; min-height: 100vh; }
+    .container { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 280px;
+      background: #1e293b;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      padding: 20px;
       display: flex;
-      gap: 12px;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .user-card {
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 18px;
+      text-align: center;
+    }
+
+    .user-photo {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #3b82f6;
+      margin-bottom: 10px;
+    }
+
+    .user-card h2 { font-size: 18px; margin-bottom: 4px; }
+    .user-card p { font-size: 13px; color: #cbd5e1; margin-bottom: 12px; word-break: break-word; }
+
+    .logout-btn {
+      width: 100%;
+      padding: 10px 12px;
+      background: #ef4444;
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.2s;
+    }
+    .logout-btn:hover { background: #dc2626; }
+
+    .content { flex: 1; padding: 24px; overflow-y: auto; }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
       align-items: center;
       justify-content: space-between;
-      flex-wrap: wrap;
+      margin-bottom: 16px;
     }
-    .brand {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      min-width: 240px;
-    }
-    .logo {
-      width: 38px;
-      height: 38px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, rgba(110,168,255,.95), rgba(49,208,170,.8));
-      box-shadow: 0 10px 25px rgba(110,168,255,.18);
-    }
-    .brand h1 {
-      margin: 0;
-      font-size: 16px;
-      letter-spacing: .2px;
-      line-height: 1.1;
-    }
-    .brand p {
-      margin: 2px 0 0;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .controls {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-    .pill {
-      background: rgba(255,255,255,.06);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 8px 10px;
+    .topbar-left h1 { font-size: 24px; }
+
+    .periodo-box {
       display: flex;
       gap: 8px;
       align-items: center;
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 10px;
+      border-radius: 12px;
+      flex-wrap: wrap;
     }
-    .pill label {
-      font-size: 12px;
-      color: var(--muted);
-    }
-    select, input, button {
-      font: inherit;
-      color: var(--text);
-    }
+    .periodo-box label { font-size: 13px; color: #cbd5e1; }
+
     select, input {
-      background: rgba(255,255,255,.06);
-      border: 1px solid var(--line);
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      background: #0f172a;
+      color: #fff;
       outline: none;
-      padding: 10px 12px;
-      border-radius: 12px;
-      transition: .15s ease;
     }
-    select:focus, input:focus {
-      border-color: rgba(110,168,255,.55);
-      box-shadow: 0 0 0 4px rgba(110,168,255,.12);
+    select:focus, input:focus { border-color: #60a5fa; }
+
+    .resumo {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
     }
-    .btn {
-      background: rgba(110,168,255,.20);
-      border: 1px solid rgba(110,168,255,.35);
-      padding: 10px 12px;
+
+    .mini-card {
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.08);
       border-radius: 14px;
+      padding: 14px;
+    }
+    .mini-card h3 {
+      font-size: 13px;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+      font-weight: normal;
+    }
+    .mini-card p { font-size: 20px; font-weight: bold; }
+    .positivo { color: #34d399; }
+    .negativo { color: #f87171; }
+
+    .section { display: none; animation: fade 0.2s ease; }
+    .section.active { display: block; }
+
+    @keyframes fade {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+    .card h3 { margin-bottom: 10px; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 140px 160px 130px 140px;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .form-grid-despesa {
+      display: grid;
+      grid-template-columns: 1fr 140px 120px 140px;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .btn {
+      padding: 11px 12px;
+      border: none;
+      border-radius: 10px;
+      background: #3b82f6;
+      color: white;
       cursor: pointer;
-      transition: .15s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
+      font-weight: bold;
+      transition: 0.2s;
+    }
+    .btn:hover { background: #2563eb; }
+
+    .btn.secondary {
+      background: #475569;
+    }
+    .btn.secondary:hover {
+      background: #334155;
+    }
+
+    .btn-delete {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 8px;
+      background: #ef4444;
+      color: #fff;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      transition: 0.2s;
       white-space: nowrap;
     }
-    .btn:hover {
-      transform: translateY(-1px);
-      background: rgba(110,168,255,.28);
-    }
-    .btn:active {
-      transform: translateY(0px);
-    }
-    .btn.secondary {
-      background: rgba(110,168,255,.28);
-      border: 10px solid var(--line);
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: 1.15fr .85fr;
-      gap: 14px;
+    .btn-delete:hover { background: #dc2626; }
+
+    .list {
+      list-style: none;
       margin-top: 14px;
-    }
-    @media (max-width: 980px) {
-      .grid { grid-template-columns: 1fr; }
-      .brand { min-width: unset; }
-    }
-    .card {
-      background: linear-gradient(180deg, rgba(15,26,46,.95), rgba(15,26,46,.75));
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    .cardHeader {
-      padding: 14px 14px 10px;
       display: flex;
-      align-items: flex-end;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .list-item {
+      display: flex;
       justify-content: space-between;
+      align-items: center;
       gap: 10px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(255,255,255,.03);
+      background: #0f172a;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 10px 12px;
     }
-    .cardHeader h2 {
-      margin: 0;
+
+    .item-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .item-left strong {
       font-size: 14px;
-      letter-spacing: .2px;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .cardHeader .hint {
-      font-size: 12px;
-      color: var(--muted);
+
+    .item-left span { font-size: 12px; color: #94a3b8; }
+
+    .item-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .cardBody {
+
+    .item-value { font-weight: bold; white-space: nowrap; }
+    .item-value.receita { color: #34d399; }
+    .item-value.despesa { color: #f87171; }
+
+    .empty { color: #94a3b8; font-size: 14px; margin-top: 8px; }
+
+    .chart-wrap {
+      height: 360px;
+      margin-top: 10px;
+      background: #0f172a;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
       padding: 8px;
     }
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 5px;
-    }
-    @media (max-width: 980px) {
-      .summary { grid-template-columns: repeat(2, 1fr); }
-    }
-    .kpi {
-      background: rgba(255,255,255,.05);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 5px;
-      min-height: px;
-    }
-    .kpi .label {
-      font-size: 12px;
-      color: var(--muted);
+
+    .hidden { display: none !important; }
+
+    canvas { width: 100% !important; height: 100% !important; }
+
+    /* ✅ NAVE EM LINHA */
+    nav ul {
+      list-style: none;
       display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .kpi .value {
-      margin-top: 6px;
-      font-weight: 700;
-      font-size: 16px;
-      letter-spacing: .2px;
-    }
-    .badge {
-      font-size: 11px;
-      padding: 4px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      color: var(--muted);
-      background: rgba(255,255,255,.04);
-    }
-    .value.good {
-      color: var(--good);
-    }
-    .value.bad {
-      color: var(--bad);
-    }
-    .tabs {
-      display: flex;
-      gap: 8px;
+      flex-direction: row;
+      gap: 10px;
       flex-wrap: wrap;
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(255,255,255,.03);
     }
-    .tab {
-      padding: 8px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.04);
-      font-size: 12px;
-      color: var(--muted);
+
+    nav li {
+      flex: 1 1 120px;
+      text-align: center;
+      padding: 14px;
+      background: #334155;
+      border-radius: 10px;
       cursor: pointer;
+      transition: 0.2s;
+      border: 1px solid transparent;
       user-select: none;
     }
-    .tab.active {
-      color: var(--text);
-      border-color: rgba(110,168,255,.45);
-      background: rgba(110,168,255,.14);
-    }
-    /* Modal */
-    .overlay {
+    nav li:hover { background: #475569; }
+    nav li.active { border-color: #60a5fa; background: #1d4ed8; }
+
+    /* LOGIN */
+    #loginScreen {
       position: fixed;
       inset: 0;
+      background: rgba(2, 6, 23, 0.96);
       display: none;
-      align-items: flex-end;
-      justify-content: center;
-      background: rgba(0,0,0,.55);
-      padding: 16px;
-      z-index: 50;
-    }
-    .overlay.show {
-      display: flex;
-    }
-    .modal {
-      width: min(680px, 100%);
-      border-radius: 22px;
-      border: 1px solid var(--line);
-      background: linear-gradient(180deg, rgba(17,31,54,.98), rgba(15,26,46,.92));
-      box-shadow: 0 24px 70px rgba(0,0,0,.55);
-      overflow: hidden;
-      transform: translateY(10px);
-      animation: up .18s ease forwards;
-    }
-    @keyframes up {
-      to {
-        transform: translateY(0);
-      }
-    }
-    .modalHeader {
-      padding: 14px;
-      display: flex;
       align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--line);
-      background: rgba(255,255,255,.03);
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
     }
-    .modalHeader strong {
-      font-size: 14px;
+
+    .login-card {
+      width: 100%;
+      max-width: 360px;
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
     }
-    .modalBody {
-      padding: 14px;
+
+    .login-card h3 {
+      text-align: center;
+      margin-bottom: 12px;
+      font-size: 18px;
     }
-    .modalFooter {
-      padding: 14px;
-      border-top: 1px solid var(--line);
-      display: flex;
+
+    .login-actions {
+      display: grid;
       gap: 10px;
-      justify-content: flex-end;
-      flex-wrap: wrap;
-      background: rgba(255,255,255,.02);
+      margin-top: 10px;
     }
-    .mini {
+
+    .login-help {
+      margin-top: 8px;
+      text-align: center;
+      color: #94a3b8;
       font-size: 12px;
-      color: var(--muted);
+    }
+
+    @media (max-width: 1180px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .form-grid-despesa { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 980px) {
+      .container { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+      .content { padding: 16px; }
+      .resumo { grid-template-columns: 1fr; }
+
+      .list-item {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .item-actions {
+        justify-content: space-between;
+      }
     }
   </style>
 </head>
 <body>
-  <!-- LOGIN SCREEN -->
-  <div id="loginScreen" style="position:fixed; inset:0; background:#0b1220; display:flex; align-items:center; justify-content:center; z-index:999;">
-    <div style="background:#111f36; padding:30px; border-radius:20px; width:320px; display:flex; flex-direction:column; gap:15px;">
-      <div>
-        <center>
-          <h3>Controle de Finanças Mensais</h3>
-        </center>
+
+  <!-- LOGIN -->
+  <div id="loginScreen">
+    <div class="login-card">
+      <h3>Controle de Finanças Mensais</h3>
+      <input id="loginEmail" type="email" placeholder="E-mail" />
+      <input id="loginPass" type="password" placeholder="Senha" style="margin-top:10px;" />
+      <div class="login-actions">
+        <button id="btnLogin" class="btn">Entrar</button>
+        <button id="btnRegister" class="btn secondary">Cadastrar</button>
       </div>
-      <input id="loginEmail" placeholder="Email">
-      <input id="loginPass" type="password" placeholder="Senha">
-      <button id="btnLogin" class="btn">Entrar</button>
-      <button id="btnRegister" class="btn secondary">Cadastrar</button>
+      <p class="login-help">Os dados são salvos no navegador e separados por usuário.</p>
     </div>
   </div>
-  
-  <!-- APP CONTAINER -->
-  <div class="app">
-    <div class="topbar">
-      <div class="toprow">
-        <div class="brand">
-          <div id="userBox" style="display:flex;align-items:center;gap:10px;">
-            <img id="userAvatar" style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid #6ea8ff;">
-            <span id="userName" style="font-size:23px;"></span>
-          </div>
+
+  <div class="container">
+    <aside class="sidebar">
+      <div>
+        <div class="user-card">
+          <img src="https://i.pravatar.cc/150?img=12" alt="Foto do usuário" class="user-photo" id="userPhoto">
+          <h2 id="userName">Usuário</h2>
+          <p id="userEmail">email@exemplo.com</p>
+          <button class="logout-btn" onclick="logout()">Sair</button>
         </div>
-        <div class="controls">
-          <div class="pill">
-            <label>Mês</label>
-            <select id="month"></select>
-          </div>
-          <div class="pill">
-            <label>Ano</label>
-            <select id="year"></select>
-          </div>
-          <button class="btn secondary" id="btnPDF">Gerar Relatório</button>
-          <button class="btn secondary" onclick="logout()">🚪 Sair</button>
+
+        <nav style="margin-top:16px;">
+          <ul>
+            <li class="menu-item active" data-target="receitas">💰 Receitas</li>
+            <li class="menu-item" data-target="despesas">💸 Despesas</li>
+            <li class="menu-item" data-target="graficos">📊 Gráficos</li>
+          </ul>
+        </nav>
+      </div>
+      <div style="font-size:12px;color:#94a3b8;text-align:center;">Painel Financeiro</div>
+    </aside>
+
+    <main class="content">
+      <div class="topbar">
+        <div class="topbar-left"><h1>Painel Financeiro</h1></div>
+        <div class="periodo-box">
+          <label for="mesSelect">Mês:</label>
+          <select id="mesSelect"></select>
+          <label for="anoSelect">Ano:</label>
+          <select id="anoSelect"></select>
         </div>
       </div>
-    </div>
-  
-   <div class="grid"> <!-- Principal --> <div class="card"> <div class="cardHeader"> <div> <h2>Resumo do mês</h2> <div class="hint">Receitas, despesas, pagos e pendências</div> </div> <span class="badge" id="badgeStatus">—</span> </div> <div class="cardBody"> <div class="summary"> <div class="kpi"> <div class="label">💼 Total receitas</div> <div class="value" id="kpiReceitas">R$ 0,00</div> </div> <div class="kpi"> <div class="label">🧾 Total despesas</div> <div class="value" id="kpiDespesas">R$ 0,00</div> </div> <div class="kpi"> <div class="label">✅ Já pago</div> <div class="value" id="kpiPago">R$ 0,00</div> </div> <div class="kpi"> <div class="label">⏳ Falta pagar</div> <div class="value" id="kpiFalta">R$ 0,00</div> </div> <div class="kpi"> <div class="label">⚖️ Saldo</div> <div class="value" id="kpiSaldo">R$ 0,00</div> </div> </div> </div> <div class="tabs" id="tabs"> <div class="tab active" data-cat="ALL">Todas</div> <div class="tab" data-cat="FIXA">Fixas</div> <div class="tab" data-cat="CASA">Fixas da Casa</div> <div class="tab" data-cat="DIVERSOS">Diversos</div> <div class="tab" data-cat="PENDENTE">Somente pendentes</div> <div class="tab" data-cat="PAGO">Somente pagas</div> </div> <div class="cardBody"> <div class="list" id="listContas"></div> <div id="emptyContas" class="empty" style="display:none;"> Nenhuma conta cadastrada neste mês. Use “Adicionar conta” ao lado. </div> </div> </div> <!-- Lateral: ações --> <div> <div class="card" style="margin-bottom:14px;"> <div class="cardHeader"> <div> <h2>Receitas (salários)</h2> <div class="hint">Adicione uma ou várias receitas do mês</div> </div> </div> <div class="cardBody"> <div class="formGrid"> <input id="incName" placeholder="Nome (ex: Salário)" class="row2" /> <input id="incValue" type="number" step="0.01" placeholder="Valor (R$)" /> <button class="btn" id="btnAddIncome">+ Adicionar</button> </div> <div style="height:10px"></div> <div class="list" id="listReceitas"></div> <div id="emptyReceitas" class="empty" style="display:none;"> Nenhuma receita cadastrada. </div> </div> </div> <div class="card"> <div class="cardHeader"> <div> <h2>Despesas</h2> <div class="hint">Fixas, casa, diversos e parcelas</div> </div> </div> <div class="cardBody"> <div class="formGrid"> <input id="expName" placeholder="Nome (ex: Internet)" class="row2" /> <input id="expValue" type="number" step="0.01" placeholder="Valor total (R$)" /> <select id="expCat"> <option value="FIXA">Fixa</option> <option value="CASA">Fixa da Casa</option> <option value="DIVERSOS">Diversos</option> </select> <div class="switch"> <input type="checkbox" id="expParcelado" /> <label for="expParcelado">Parcelado?</label> </div> <input id="expParcelas" type="number" min="2" step="1" placeholder="Nº parcelas (ex: 10)" style="display:none" /> <button class="btn" id="btnAddExpense">+ Adicionar conta</button> </div> <p class="mini" style="margin:10px 0 0;"> Dica: se marcar “Parcelado”, o sistema divide o valor total pelo número de parcelas e lança o valor mensal. </p> </div> </div> </div> </div> </div> <!-- Modal export --> <div class="overlay" id="overlay"> <div class="modal"> <div class="modalHeader"> <strong>Exportação</strong> <button class="btn secondary" id="btnCloseModal">Fechar</button> </div> <div class="modalBody"> <div class="mini">Copie e guarde esse JSON como backup.</div> <div style="height:10px"></div> <textarea id="exportBox" style="width:100%;height:260px;border-radius:16px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text);padding:12px;outline:none;"></textarea> </div> <div class="modalFooter"> <button class="btn" id="btnCopy">Copiar</button> </div> </div> </div>
 
+      <div class="resumo">
+        <div class="mini-card">
+          <h3>Total de Receitas</h3>
+          <p id="totalReceitas" class="positivo">R$ 0,00</p>
+        </div>
+        <div class="mini-card">
+          <h3>Total de Despesas</h3>
+          <p id="totalDespesas" class="negativo">R$ 0,00</p>
+        </div>
+        <div class="mini-card">
+          <h3>Saldo</h3>
+          <p id="saldoTotal">R$ 0,00</p>
+        </div>
+      </div>
+
+      <section id="receitas" class="section active">
+        <div class="card">
+          <h3>Adicionar receita</h3>
+          <div class="form-grid">
+            <input type="text" id="descReceita" placeholder="Descrição (ex: Salário)" />
+            <input type="number" id="valorReceita" placeholder="Valor" step="0.01" />
+            <select id="tipoReceita">
+              <option value="unica">Única</option>
+              <option value="recorrente">Recorrente</option>
+            </select>
+            <input type="number" id="mesesRecorrenciaReceita" min="1" value="12" placeholder="Meses" class="hidden" />
+            <button class="btn" onclick="addReceita()">Adicionar</button>
+          </div>
+
+          <ul id="listaReceitas" class="list"></ul>
+          <p id="emptyReceitas" class="empty">Nenhuma receita cadastrada neste mês.</p>
+        </div>
+      </section>
+
+      <section id="despesas" class="section">
+        <div class="card">
+          <h3>Adicionar despesa</h3>
+          <div class="form-grid-despesa">
+            <input type="text" id="descDespesa" placeholder="Descrição (ex: Aluguel)" />
+            <input type="number" id="valorDespesa" placeholder="Valor" step="0.01" />
+            <input type="number" id="parcelasDespesa" placeholder="Parcelas" min="1" value="1" />
+            <button class="btn" onclick="addDespesa()">Adicionar</button>
+          </div>
+
+          <ul id="listaDespesas" class="list"></ul>
+          <p id="emptyDespesas" class="empty">Nenhuma despesa cadastrada neste mês.</p>
+        </div>
+      </section>
+
+      <section id="graficos" class="section">
+        <div class="card">
+          <h3>Rendimento anual (ano selecionado)</h3>
+          <div class="chart-wrap">
+            <canvas id="financeChart"></canvas>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
 
   <script>
-  /* ================= UTIL ================= */
-const fmt = n => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const uid = () => Math.random().toString(36).slice(2, 10);
+    /* =========================
+       AUTENTICAÇÃO (localStorage)
+    ========================== */
+    const STORAGE_USERS_KEY = "usuarios_financas_v2";
+    const STORAGE_SESSION_KEY = "usuario_logado_financas_v2";
 
-let db = null;
-let currentUser = null;
+    let currentUser = null;
 
-let state = {
-  selected: { month: new Date().getMonth(), year: new Date().getFullYear() },
-  data: {}
-};
-
-function keyMY(m, y) {
-  return `${y}-${String(m + 1).padStart(2, "0")}`;
-}
-
-function ensureBucket(m = state.selected.month, y = state.selected.year) {
-  const k = keyMY(m, y);
-  if (!state.data[k]) state.data[k] = { incomes: [], expenses: [] };
-  return state.data[k];
-}
-
-/* ================= LOGIN ================= */
-function getUsers() {
-  return JSON.parse(localStorage.getItem("usuarios_financas") || "[]");
-}
-
-function saveUsers(users) {
-  localStorage.setItem("usuarios_financas", JSON.stringify(users));
-}
-
-btnRegister.onclick = () => {
-  const email = loginEmail.value.trim();
-  const pass = loginPass.value.trim();
-  if (!email || !pass) return alert("Preencha tudo.");
-  let users = getUsers();
-  if (users.find(u => u.email === email)) return alert("Usuário já existe.");
-  users.push({
-    email,
-    pass,
-    avatar: `https://ui-avatars.com/api/?name=${email}&background=6ea8ff&color=fff`
-  });
-  saveUsers(users);
-  alert("Usuário criado!");
-};
-
-btnLogin.onclick = () => {
-  const email = loginEmail.value.trim();
-  const pass = loginPass.value.trim();
-  const user = getUsers().find(u => u.email === email && u.pass === pass);
-  if (!user) return alert("Credenciais inválidas.");
-  currentUser = email;
-  localStorage.setItem("usuario_logado", email);
-  document.getElementById("loginScreen").style.display = "none";
-  initDBForUser();
-};
-
-function autoLogin() {
-  const saved = localStorage.getItem("usuario_logado");
-  if (saved) {
-    currentUser = saved;
-    document.getElementById("loginScreen").style.display = "none";
-    initDBForUser();
-  }
-}
-
-function logout() {
-  localStorage.removeItem("usuario_logado");
-  location.reload();
-}
-
-/* ================= DATABASE ================= */
-function initDBForUser() {
-  const request = indexedDB.open("financasDB_" + currentUser, 1);
-  request.onupgradeneeded = e => {
-    db = e.target.result;
-    if (!db.objectStoreNames.contains("meses")) {
-      db.createObjectStore("meses", { keyPath: "id" });
+    function getUsers() {
+      return JSON.parse(localStorage.getItem(STORAGE_USERS_KEY) || "[]");
     }
-  };
-  request.onsuccess = e => {
-    db = e.target.result;
-    loadDB();
-    loadUserInfo();
-    startInactivityTimer();
-  };
-}
 
-function saveDB() {
-  const tx = db.transaction(["meses"], "readwrite");
-  tx.objectStore("meses").put({ id: "dados_financas", data: state.data, selected: state.selected });
-}
-
-function loadDB() {
-  const tx = db.transaction(["meses"], "readonly");
-  const request = tx.objectStore("meses").get("dados_financas");
-  request.onsuccess = () => {
-    if (request.result) {
-      state.data = request.result.data || {};
-      state.selected = request.result.selected || state.selected;
+    function saveUsers(users) {
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
     }
-    initMonthYear();
-    render();
-  };
-}
 
-/* ================= DISPLAY USER INFO ================= */
-function loadUserInfo() {
-  const users = getUsers();
-  const user = users.find(u => u.email === currentUser);
-  if (!user) return;
-  document.getElementById("userName").textContent = currentUser;
-  document.getElementById("userAvatar").src = user.avatar;
-}
-
-/* ================= INACTIVITY TIMER ================= */
-let inactivityTimer;
-const TIME_LIMIT = 10 * 60 * 1000;
-
-function resetTimer() {
-  clearTimeout(inactivityTimer);
-  inactivityTimer = setTimeout(() => {
-    alert("Sessão expirada por inatividade.");
-    logout();
-  }, TIME_LIMIT);
-}
-
-function startInactivityTimer() {
-  ["click", "mousemove", "keypress", "scroll", "touchstart"]
-    .forEach(event => document.addEventListener(event, resetTimer));
-  resetTimer();
-}
-
-/* ================= MONTH SELECTION ================= */
-const monthSel = document.getElementById("month");
-const yearSel = document.getElementById("year");
-
-function initMonthYear() {
-  const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  monthSel.innerHTML = months.map((m, i) => `<option value="${i}">${m}</option>`).join("");
-  const currentYear = new Date().getFullYear();
-  yearSel.innerHTML = "";
-  for (let i = currentYear - 5; i <= currentYear + 5; i++) {
-    yearSel.innerHTML += `<option value="${i}">${i}</option>`;
-  }
-  monthSel.value = state.selected.month;
-  yearSel.value = state.selected.year;
-  monthSel.onchange = () => {
-    state.selected.month = Number(monthSel.value);
-    saveDB();
-    render();
-  };
-  yearSel.onchange = () => {
-    state.selected.year = Number(yearSel.value);
-    saveDB();
-    render();
-  };
-}
-
-/* ================= RECEITAS ================= */
-btnAddIncome.onclick = () => {
-  const bucket = ensureBucket();
-  const name = incName.value.trim() || "Salário";
-  const value = Number(incValue.value);
-  if (!value || value <= 0) return alert("Valor inválido.");
-  bucket.incomes.push({ id: uid(), name, value });
-  incName.value = "";
-  incValue.value = "";
-  saveDB();
-  render();
-};
-
-/* ================= DESPESAS ================= */
-expCat.addEventListener("change", () => {
-  expParcelas.style.display = expCat.value === "FIXA" ? "block" : "none";
-});
-
-btnAddExpense.onclick = () => {
-  const name = expName.value.trim() || "Conta";
-  const valor = Number(expValue.value);
-  const category = expCat.value;
-  if (!valor || valor <= 0) return alert("Valor inválido.");
-  const origemId = uid();
-  if (category === "FIXA") {
-    const parcelas = Number(expParcelas.value || 0);
-    if (parcelas < 1) return alert("Informe número de parcelas.");
-    for (let i = 0; i < parcelas; i++) {
-      let mes = state.selected.month + i;
-      let ano = state.selected.year;
-      while (mes > 11) { mes -= 12; ano++; }
-      ensureBucket(mes, ano).expenses.push({
-        id: uid(),
-        origemId,
-        name,
-        category,
-        value: valor,
-        parcelaAtual: i + 1,
-        totalParcelas: parcelas,
-        paid: false
-      });
+    function makeAvatar(email) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(email)}&background=1d4ed8&color=fff`;
     }
-  } else if (category === "CASA") {
-    for (let i = 0; i < 120; i++) {
-      let mes = state.selected.month + i;
-      let ano = state.selected.year;
-      while (mes > 11) { mes -= 12; ano++; }
-      ensureBucket(mes, ano).expenses.push({
-        id: uid(),
-        origemId,
-        name,
-        category,
-        value: valor,
-        recorrente: true,
-        paid: false
-      });
+
+    function getUserDataKey(email) {
+      return `financas_data_${email}`;
     }
-  } else {
-    ensureBucket().expenses.push({ id: uid(), name, category, value: valor, paid: false });
-  }
-  expName.value = "";
-  expValue.value = "";
-  expParcelas.value = "";
-  saveDB();
-  render();
-};
 
-/* ================= RENDER ================= */
-function render() {
-  renderReceitas();
-  renderDespesas();
-  renderKPIs();
-}
+    function loginUser(email) {
+      currentUser = email;
+      localStorage.setItem(STORAGE_SESSION_KEY, email);
+      document.getElementById("loginScreen").style.display = "none";
+      carregarDadosUsuario();
+      carregarInfoUsuario();
+      atualizarTudo();
+      atualizarGraficoComResize();
+    }
 
-function renderReceitas() {
-  const bucket = ensureBucket();
-  listReceitas.innerHTML = "";
-  emptyReceitas.style.display = bucket.incomes.length === 0 ? "block" : "none";
-  bucket.incomes.forEach(r => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <div class="title"><strong>${r.name}</strong></div>
-      <div class="money">${fmt(r.value)}</div>
-      <div class="actions">
-        <button class="btn" onclick="removeIncome('${r.id}')">Excluir</button>
-      </div>`;
-    listReceitas.appendChild(div);
-  });
-}
+    function autoLogin() {
+      const saved = localStorage.getItem(STORAGE_SESSION_KEY);
+      if (saved && getUsers().some(u => u.email === saved)) {
+        loginUser(saved);
+      } else {
+        document.getElementById("loginScreen").style.display = "flex";
+      }
+    }
 
-function renderDespesas() {
-  const bucket = ensureBucket();
-  listContas.innerHTML = "";
-  emptyContas.style.display = bucket.expenses.length === 0 ? "block" : "none";
-  bucket.expenses.forEach(c => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <div class="title">
-        <strong>${c.name}</strong>
-        <div class="meta">
-          <span class="chip ${c.paid ? 'good' : 'warn'}">${c.paid ? 'Pago' : 'Pendente'}</span>
-          ${c.totalParcelas ? `<span class="chip bad">${c.parcelaAtual}/${c.totalParcelas}</span>` : ""}
-          ${c.recorrente ? `<span class="chip good">Recorrente</span>` : ""}
-        </div>
-      </div>
-      <div class="money">${fmt(c.value)}</div>
-      <div class="actions">
-        <button class="btn" onclick="togglePaid('${c.id}')">${c.paid ? 'Marcar pendente' : 'Marcar pago'}</button>
-        ${c.origemId ? `<button class="btn secondary" onclick="removeParcelamento('${c.origemId}')">Excluir Parcelamento</button>` : ""}
-        <button class="btn" onclick="removeExpense('${c.id}')">Excluir</button>
-      </div>`;
-    listContas.appendChild(div);
-  });
-}
+    function logout() {
+      localStorage.removeItem(STORAGE_SESSION_KEY);
+      currentUser = null;
+      location.reload();
+    }
 
-function renderKPIs() {
-  const bucket = ensureBucket();
-  const totalInc = bucket.incomes.reduce((a, b) => a + b.value, 0);
-  const totalExp = bucket.expenses.reduce((a, b) => a + b.value, 0);
-  const paid = bucket.expenses.filter(x => x.paid).reduce((a, b) => a + b.value, 0);
-  kpiReceitas.textContent = fmt(totalInc);
-  kpiDespesas.textContent = fmt(totalExp);
-  kpiPago.textContent = fmt(paid);
-  kpiFalta.textContent = fmt(totalExp - paid);
-  kpiSaldo.textContent = fmt(totalInc - totalExp);
-}
-
-/* ================= PDF ================= */
-btnPDF.onclick = () => {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  let y = 10;
-  doc.text("Finanças Mensais", 10, y);
-  y += 10;
-  const bucket = ensureBucket();
-  bucket.incomes.forEach(r => {
-    doc.text(`Receita: ${r.name} - ${fmt(r.value)}`, 10, y);
-    y += 8;
-  });
-  bucket.expenses.forEach(c => {
-    doc.text(`Despesa: ${c.name} - ${fmt(c.value)} - ${c.paid ? "Pago" : "Pendente"}`, 10, y);
-    y += 8;
-  });
-  doc.save("financas.pdf");
-};
-
-/* ================= START ================= */
-autoLogin();
-  </script>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
-      authDomain: "financasmensaispaulods.firebaseapp.com",
-      projectId: "financasmensaispaulods",
-      storageBucket: "financasmensaispaulods.firebasestorage.app",
-      messagingSenderId: "168499253940",
-      appId: "1:168499253940:web:8d14795ad8195858283de1"
+    /* =========================
+       ESTADO DO APP
+    ========================== */
+    const state = {
+      selected: {
+        month: new Date().getMonth(),
+        year: new Date().getFullYear()
+      },
+      data: {}
     };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    enableIndexedDbPersistence(db).catch(()=>{});
+    const mesesNomes = [
+      "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+      "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+    ];
 
-    // Função para remover uma receita
-function removeIncome(id) {
-  const bucket = ensureBucket();
-  bucket.incomes = bucket.incomes.filter(income => income.id !== id);
-  saveDB();
-  render(); // Re-renderiza a lista para refletir a exclusão
-}
-    // Função para remover uma despesa
-function removeExpense(id) {
-  const bucket = ensureBucket();
-  bucket.expenses = bucket.expenses.filter(expense => expense.id !== id);
-  saveDB();
-  render(); // Re-renderiza a lista para refletir a exclusão
-}
-    // Função para remover parcelamento
-function removeParcelamento(origemId) {
-  const bucket = ensureBucket();
-  bucket.expenses = bucket.expenses.filter(expense => expense.origemId !== origemId);
-  saveDB();
-  render(); // Re-renderiza a lista para refletir a exclusão do parcelamento
-}
+    function uid() {
+      return `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    }
+
+    function formatarBRL(valor) {
+      return Number(valor || 0).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+      });
+    }
+
+    function keyMY(month, year) {
+      return `${year}-${String(month + 1).padStart(2, "0")}`;
+    }
+
+    function bucketBy(month, year) {
+      const key = keyMY(month, year);
+      if (!state.data[key]) state.data[key] = { receitas: [], despesas: [] };
+      return state.data[key];
+    }
+
+    function bucketAtual() {
+      return bucketBy(state.selected.month, state.selected.year);
+    }
+
+    function textoPeriodo(month, year) {
+      return `${mesesNomes[month]}/${year}`;
+    }
+
+    function textoPeriodoAtual() {
+      return textoPeriodo(state.selected.month, state.selected.year);
+    }
+
+    function somarMeses(month, year, add) {
+      const base = new Date(year, month, 1);
+      base.setMonth(base.getMonth() + add);
+      return { month: base.getMonth(), year: base.getFullYear() };
+    }
+
+    /* =========================
+       SALVAR / CARREGAR DADOS DO USUÁRIO
+    ========================== */
+    function salvarDadosUsuario() {
+      if (!currentUser) return;
+      const payload = {
+        data: state.data,
+        selected: state.selected
+      };
+      localStorage.setItem(getUserDataKey(currentUser), JSON.stringify(payload));
+    }
+
+    function carregarDadosUsuario() {
+      if (!currentUser) return;
+      const raw = localStorage.getItem(getUserDataKey(currentUser));
+      if (!raw) {
+        state.data = {};
+        state.selected = {
+          month: new Date().getMonth(),
+          year: new Date().getFullYear()
+        };
+        mesSelect.value = String(state.selected.month);
+        anoSelect.value = String(state.selected.year);
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+        state.data = parsed.data || {};
+        state.selected = parsed.selected || state.selected;
+
+        // Garante selects sincronizados
+        mesSelect.value = String(state.selected.month);
+        anoSelect.value = String(state.selected.year);
+      } catch (e) {
+        console.error("Erro ao carregar dados do usuário:", e);
+        state.data = {};
+      }
+    }
+
+    function carregarInfoUsuario() {
+      const user = getUsers().find(u => u.email === currentUser);
+      if (!user) return;
+
+      document.getElementById("userName").textContent = user.nome || user.email.split("@")[0];
+      document.getElementById("userEmail").textContent = user.email;
+      document.getElementById("userPhoto").src = user.foto || makeAvatar(user.email);
+    }
+
+    /* =========================
+       ELEMENTOS LOGIN
+    ========================== */
+    const btnLogin = document.getElementById("btnLogin");
+    const btnRegister = document.getElementById("btnRegister");
+    const loginEmail = document.getElementById("loginEmail");
+    const loginPass = document.getElementById("loginPass");
+
+    btnRegister.addEventListener("click", () => {
+      const email = loginEmail.value.trim().toLowerCase();
+      const pass = loginPass.value.trim();
+
+      if (!email || !pass) {
+        alert("Preencha e-mail e senha.");
+        return;
+      }
+
+      if (!email.includes("@")) {
+        alert("Digite um e-mail válido.");
+        return;
+      }
+
+      const users = getUsers();
+      if (users.some(u => u.email === email)) {
+        alert("Usuário já cadastrado.");
+        return;
+      }
+
+      users.push({
+        email,
+        pass,
+        nome: email.split("@")[0],
+        foto: makeAvatar(email)
+      });
+
+      saveUsers(users);
+      alert("Cadastro realizado com sucesso!");
+    });
+
+    btnLogin.addEventListener("click", () => {
+      const email = loginEmail.value.trim().toLowerCase();
+      const pass = loginPass.value.trim();
+
+      if (!email || !pass) {
+        alert("Preencha e-mail e senha.");
+        return;
+      }
+
+      const user = getUsers().find(u => u.email === email && u.pass === pass);
+      if (!user) {
+        alert("Credenciais inválidas.");
+        return;
+      }
+
+      loginUser(user.email);
+    });
+
+    [loginEmail, loginPass].forEach(el => {
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") btnLogin.click();
+      });
+    });
+
+    /* =========================
+       TOGGLE RECORRÊNCIA RECEITA
+    ========================== */
+    const tipoReceitaEl = document.getElementById("tipoReceita");
+    const mesesRecorrenciaEl = document.getElementById("mesesRecorrenciaReceita");
+
+    tipoReceitaEl.addEventListener("change", () => {
+      if (tipoReceitaEl.value === "recorrente") {
+        mesesRecorrenciaEl.classList.remove("hidden");
+      } else {
+        mesesRecorrenciaEl.classList.add("hidden");
+      }
+    });
+
+    /* =========================
+       SELECTS MÊS/ANO
+    ========================== */
+    const mesSelect = document.getElementById("mesSelect");
+    const anoSelect = document.getElementById("anoSelect");
+
+    mesesNomes.forEach((nome, i) => {
+      const opt = document.createElement("option");
+      opt.value = i;
+      opt.textContent = nome;
+      if (i === state.selected.month) opt.selected = true;
+      mesSelect.appendChild(opt);
+    });
+
+    const anoAtual = new Date().getFullYear();
+    for (let ano = anoAtual - 5; ano <= anoAtual + 5; ano++) {
+      const opt = document.createElement("option");
+      opt.value = ano;
+      opt.textContent = ano;
+      if (ano === state.selected.year) opt.selected = true;
+      anoSelect.appendChild(opt);
+    }
+
+    mesSelect.addEventListener("change", () => {
+      state.selected.month = Number(mesSelect.value);
+      salvarDadosUsuario();
+      atualizarTudo();
+      atualizarGraficoComResize();
+    });
+
+    anoSelect.addEventListener("change", () => {
+      state.selected.year = Number(anoSelect.value);
+      salvarDadosUsuario();
+      atualizarTudo();
+      atualizarGraficoComResize();
+    });
+
+    /* =========================
+       MENU LATERAL
+    ========================== */
+    document.querySelectorAll(".menu-item").forEach(item => {
+      item.addEventListener("click", () => {
+        document.querySelectorAll(".menu-item").forEach(i => i.classList.remove("active"));
+        item.classList.add("active");
+
+        const target = item.dataset.target;
+        document.querySelectorAll(".section").forEach(sec => sec.classList.remove("active"));
+        document.getElementById(target).classList.add("active");
+
+        if (target === "graficos") atualizarGraficoComResize();
+      });
+    });
+
+    /* =========================
+       GRÁFICO
+    ========================== */
+    const ctx = document.getElementById("financeChart").getContext("2d");
+    const financeChart = new Chart(ctx, {
+      data: {
+        labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
+        datasets: [
+          { type: "bar", label: "Receitas", data: Array(12).fill(0), borderWidth: 1 },
+          { type: "bar", label: "Despesas", data: Array(12).fill(0), borderWidth: 1 },
+          { type: "line", label: "Saldo", data: Array(12).fill(0), tension: 0.3, borderWidth: 3, pointRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: "#fff" } },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return " " + context.dataset.label + ": " + formatarBRL(context.raw);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: "#cbd5e1" },
+            grid: { color: "rgba(255,255,255,0.08)" }
+          },
+          y: {
+            ticks: {
+              color: "#cbd5e1",
+              callback: (value) => "R$ " + Number(value).toLocaleString("pt-BR")
+            },
+            grid: { color: "rgba(255,255,255,0.08)" }
+          }
+        }
+      }
+    });
+
+    function atualizarGraficoComResize() {
+      setTimeout(() => {
+        financeChart.resize();
+        financeChart.update();
+      }, 80);
+    }
+
+    /* =========================
+       AÇÕES RECEITAS / DESPESAS
+    ========================== */
+    function addReceita() {
+      if (!currentUser) {
+        alert("Faça login para cadastrar receitas.");
+        return;
+      }
+
+      const descInput = document.getElementById("descReceita");
+      const valorInput = document.getElementById("valorReceita");
+      const tipoReceita = document.getElementById("tipoReceita").value;
+      const mesesRec = parseInt(document.getElementById("mesesRecorrenciaReceita").value, 10);
+
+      const desc = descInput.value.trim();
+      const valor = parseFloat(valorInput.value);
+
+      if (!desc || isNaN(valor) || valor <= 0) {
+        alert("Preencha a descrição e um valor válido para a receita.");
+        return;
+      }
+
+      if (tipoReceita === "unica") {
+        bucketAtual().receitas.push({
+          id: uid(),
+          desc,
+          valor,
+          tipo: "unica"
+        });
+      } else {
+        if (isNaN(mesesRec) || mesesRec < 1) {
+          alert("Informe uma quantidade de meses válida para a recorrência.");
+          return;
+        }
+
+        const grupoId = "rec-" + uid();
+
+        for (let i = 0; i < mesesRec; i++) {
+          const destino = somarMeses(state.selected.month, state.selected.year, i);
+          const bucket = bucketBy(destino.month, destino.year);
+
+          bucket.receitas.push({
+            id: uid(),
+            grupoId,
+            desc,
+            valor,
+            tipo: "recorrente",
+            recorrenciaTotal: mesesRec,
+            recorrenciaAtual: i + 1,
+            mesRef: destino.month,
+            anoRef: destino.year
+          });
+        }
+      }
+
+      descInput.value = "";
+      valorInput.value = "";
+      document.getElementById("tipoReceita").value = "unica";
+      mesesRecorrenciaEl.value = "12";
+      mesesRecorrenciaEl.classList.add("hidden");
+
+      salvarDadosUsuario();
+      atualizarTudo();
+    }
+
+    function addDespesa() {
+      if (!currentUser) {
+        alert("Faça login para cadastrar despesas.");
+        return;
+      }
+
+      const descInput = document.getElementById("descDespesa");
+      const valorInput = document.getElementById("valorDespesa");
+      const parcelasInput = document.getElementById("parcelasDespesa");
+
+      const desc = descInput.value.trim();
+      const valor = parseFloat(valorInput.value);
+      const parcelas = parseInt(parcelasInput.value, 10);
+
+      if (!desc || isNaN(valor) || valor <= 0) {
+        alert("Preencha a descrição e um valor válido para a despesa.");
+        return;
+      }
+
+      if (isNaN(parcelas) || parcelas < 1) {
+        alert("Informe uma quantidade de parcelas válida.");
+        return;
+      }
+
+      const grupoId = "desp-" + uid();
+
+      for (let i = 0; i < parcelas; i++) {
+        const destino = somarMeses(state.selected.month, state.selected.year, i);
+        const bucket = bucketBy(destino.month, destino.year);
+
+        bucket.despesas.push({
+          id: uid(),
+          grupoId,
+          desc,
+          valor,
+          parcelasTotal: parcelas,
+          parcelaAtual: i + 1,
+          mesRef: destino.month,
+          anoRef: destino.year
+        });
+      }
+
+      descInput.value = "";
+      valorInput.value = "";
+      parcelasInput.value = "1";
+
+      salvarDadosUsuario();
+      atualizarTudo();
+    }
+
+    function excluirReceita(id) {
+      const bucket = bucketAtual();
+      bucket.receitas = bucket.receitas.filter(item => item.id !== id);
+      salvarDadosUsuario();
+      atualizarTudo();
+    }
+
+    function excluirDespesa(id) {
+      const bucket = bucketAtual();
+      bucket.despesas = bucket.despesas.filter(item => item.id !== id);
+      salvarDadosUsuario();
+      atualizarTudo();
+    }
+
+    // Expor funções para onclick do HTML
+    window.addReceita = addReceita;
+    window.addDespesa = addDespesa;
+    window.excluirReceita = excluirReceita;
+    window.excluirDespesa = excluirDespesa;
+    window.logout = logout;
+
+    /* =========================
+       RENDER
+    ========================== */
+    function atualizarTudo() {
+      renderListas();
+      atualizarResumo();
+      atualizarGrafico();
+    }
+
+    function renderListas() {
+      const bucket = bucketAtual();
+
+      const listaReceitas = document.getElementById("listaReceitas");
+      const listaDespesas = document.getElementById("listaDespesas");
+      const emptyReceitas = document.getElementById("emptyReceitas");
+      const emptyDespesas = document.getElementById("emptyDespesas");
+
+      listaReceitas.innerHTML = bucket.receitas.map(item => {
+        let info = textoPeriodoAtual();
+
+        if (item.tipo === "recorrente") {
+          info += ` • Recorrência ${item.recorrenciaAtual}/${item.recorrenciaTotal}`;
+        }
+
+        return `
+          <li class="list-item">
+            <div class="item-left">
+              <strong>${escapeHtml(item.desc)}</strong>
+              <span>${info}</span>
+            </div>
+            <div class="item-actions">
+              <div class="item-value receita">${formatarBRL(item.valor)}</div>
+              <button class="btn-delete" onclick="excluirReceita('${item.id}')">Excluir</button>
+            </div>
+          </li>
+        `;
+      }).join("");
+
+      listaDespesas.innerHTML = bucket.despesas.map(item => `
+        <li class="list-item">
+          <div class="item-left">
+            <strong>${escapeHtml(item.desc)}</strong>
+            <span>${textoPeriodoAtual()} • Parcela ${item.parcelaAtual}/${item.parcelasTotal}</span>
+          </div>
+          <div class="item-actions">
+            <div class="item-value despesa">${formatarBRL(item.valor)}</div>
+            <button class="btn-delete" onclick="excluirDespesa('${item.id}')">Excluir</button>
+          </div>
+        </li>
+      `).join("");
+
+      emptyReceitas.style.display = bucket.receitas.length ? "none" : "block";
+      emptyDespesas.style.display = bucket.despesas.length ? "none" : "block";
+    }
+
+    function atualizarResumo() {
+      const bucket = bucketAtual();
+
+      const totalR = bucket.receitas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+      const totalD = bucket.despesas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+      const saldo = totalR - totalD;
+
+      document.getElementById("totalReceitas").textContent = formatarBRL(totalR);
+      document.getElementById("totalDespesas").textContent = formatarBRL(totalD);
+
+      const saldoEl = document.getElementById("saldoTotal");
+      saldoEl.textContent = formatarBRL(saldo);
+      saldoEl.classList.remove("positivo", "negativo");
+      saldoEl.classList.add(saldo >= 0 ? "positivo" : "negativo");
+    }
+
+    function atualizarGrafico() {
+      const receitasAno = [];
+      const despesasAno = [];
+      const saldoAno = [];
+
+      for (let mes = 0; mes < 12; mes++) {
+        const bucket = bucketBy(mes, state.selected.year);
+
+        const totalR = bucket.receitas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+        const totalD = bucket.despesas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+        const saldo = totalR - totalD;
+
+        receitasAno.push(totalR);
+        despesasAno.push(totalD);
+        saldoAno.push(saldo);
+      }
+
+      financeChart.data.datasets[0].label = `Receitas (${state.selected.year})`;
+      financeChart.data.datasets[1].label = `Despesas (${state.selected.year})`;
+      financeChart.data.datasets[2].label = `Saldo (${state.selected.year})`;
+
+      financeChart.data.datasets[0].data = receitasAno;
+      financeChart.data.datasets[1].data = despesasAno;
+      financeChart.data.datasets[2].data = saldoAno;
+
+      financeChart.update();
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    /* =========================
+       INICIALIZAÇÃO
+    ========================== */
+    // Preenche usuário temporário visual (antes do login)
+    document.getElementById("userName").textContent = "Usuário";
+    document.getElementById("userEmail").textContent = "Faça login";
+    document.getElementById("userPhoto").src = "https://i.pravatar.cc/150?img=12";
+
+    // Se não estiver logado, mostra layout mas bloqueia uso até logar
+    document.getElementById("loginScreen").style.display = "flex";
+
+    // Render inicial vazio
+    atualizarTudo();
+    atualizarGraficoComResize();
+
+    // Tenta login automático
+    autoLogin();
   </script>
 </body>
 </html>
-
-
-
