@@ -91,7 +91,7 @@
 
     .resumo {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 12px;
       margin-bottom: 18px;
     }
@@ -388,6 +388,10 @@
         <div class="mini-card">
           <h3>Saldo</h3>
           <p id="saldoTotal">R$ 0,00</p>
+        </div>
+        <div class="mini-card">
+          <h3>Patrimônio acumulado (ano)</h3>
+        <p id="patrimonioAcumulado">R$ 0,00</p>
         </div>
       </div>
 
@@ -980,21 +984,35 @@ Painel Financeiro`
     emptyDespesas.style.display = bucket.despesas.length ? "none" : "block";
   }
 
-  function atualizarResumo() {
-    const bucket = bucketAtual();
+ function atualizarResumo() {
+  const bucket = bucketAtual();
 
-    const totalR = bucket.receitas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
-    const totalD = bucket.despesas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
-    const saldo = totalR - totalD;
+  const totalR = bucket.receitas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+  const totalD = bucket.despesas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+  const saldo = totalR - totalD;
 
-    document.getElementById("totalReceitas").textContent = formatarBRL(totalR);
-    document.getElementById("totalDespesas").textContent = formatarBRL(totalD);
-
-    const saldoEl = document.getElementById("saldoTotal");
-    saldoEl.textContent = formatarBRL(saldo);
-    saldoEl.classList.remove("positivo", "negativo");
-    saldoEl.classList.add(saldo >= 0 ? "positivo" : "negativo");
+  // Patrimônio acumulado no ano até o mês selecionado
+  let patrimonio = 0;
+  for (let mes = 0; mes <= state.selected.month; mes++) {
+    const b = bucketBy(mes, state.selected.year);
+    const r = b.receitas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+    const d = b.despesas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+    patrimonio += (r - d);
   }
+
+  document.getElementById("totalReceitas").textContent = formatarBRL(totalR);
+  document.getElementById("totalDespesas").textContent = formatarBRL(totalD);
+
+  const saldoEl = document.getElementById("saldoTotal");
+  saldoEl.textContent = formatarBRL(saldo);
+  saldoEl.classList.remove("positivo", "negativo");
+  saldoEl.classList.add(saldo >= 0 ? "positivo" : "negativo");
+
+  const patrimonioEl = document.getElementById("patrimonioAcumulado");
+  patrimonioEl.textContent = formatarBRL(patrimonio);
+  patrimonioEl.classList.remove("positivo", "negativo");
+  patrimonioEl.classList.add(patrimonio >= 0 ? "positivo" : "negativo");
+}
 
   function atualizarGrafico() {
     const receitasAno = [];
@@ -1056,4 +1074,5 @@ Painel Financeiro`
   </script>
 </body>
 </html>
+
 
