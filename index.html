@@ -144,7 +144,7 @@
 
     .form-grid {
       display: grid;
-      grid-template-columns: 1fr 160px 140px;
+      grid-template-columns: 1fr 140px 160px 130px 140px;
       gap: 10px;
       margin-top: 10px;
     }
@@ -167,6 +167,20 @@
       transition: 0.2s;
     }
     .btn:hover { background: #2563eb; }
+
+    .btn-delete {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 8px;
+      background: #ef4444;
+      color: #fff;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      transition: 0.2s;
+      white-space: nowrap;
+    }
+    .btn-delete:hover { background: #dc2626; }
 
     .list {
       list-style: none;
@@ -192,6 +206,7 @@
       flex-direction: column;
       gap: 2px;
       min-width: 0;
+      flex: 1;
     }
 
     .item-left strong {
@@ -203,6 +218,13 @@
     }
 
     .item-left span { font-size: 12px; color: #94a3b8; }
+
+    .item-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .item-value { font-weight: bold; white-space: nowrap; }
     .item-value.receita { color: #34d399; }
     .item-value.despesa { color: #f87171; }
@@ -218,7 +240,14 @@
       padding: 8px;
     }
 
+    .hidden { display: none !important; }
+
     canvas { width: 100% !important; height: 100% !important; }
+
+    @media (max-width: 1180px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .form-grid-despesa { grid-template-columns: 1fr; }
+    }
 
     @media (max-width: 980px) {
       .container { flex-direction: column; }
@@ -229,7 +258,15 @@
       }
       .content { padding: 16px; }
       .resumo { grid-template-columns: 1fr; }
-      .form-grid, .form-grid-despesa { grid-template-columns: 1fr; }
+
+      .list-item {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .item-actions {
+        justify-content: space-between;
+      }
     }
   </style>
 </head>
@@ -287,6 +324,11 @@
           <div class="form-grid">
             <input type="text" id="descReceita" placeholder="Descrição (ex: Salário)" />
             <input type="number" id="valorReceita" placeholder="Valor" step="0.01" />
+            <select id="tipoReceita">
+              <option value="unica">Única</option>
+              <option value="recorrente">Recorrente</option>
+            </select>
+            <input type="number" id="mesesRecorrenciaReceita" min="1" value="12" placeholder="Meses" class="hidden" />
             <button class="btn" onclick="addReceita()">Adicionar</button>
           </div>
 
@@ -341,6 +383,10 @@
       "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
     ];
 
+    function uid() {
+      return `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    }
+
     function formatarBRL(valor) {
       return Number(valor || 0).toLocaleString("pt-BR", {
         style: "currency",
@@ -376,6 +422,18 @@
     document.getElementById("userName").textContent = usuario.nome;
     document.getElementById("userEmail").textContent = usuario.email;
     document.getElementById("userPhoto").src = usuario.foto;
+
+    // Toggle recorrência receita
+    const tipoReceitaEl = document.getElementById("tipoReceita");
+    const mesesRecorrenciaEl = document.getElementById("mesesRecorrenciaReceita");
+
+    tipoReceitaEl.addEventListener("change", () => {
+      if (tipoReceitaEl.value === "recorrente") {
+        mesesRecorrenciaEl.classList.remove("hidden");
+      } else {
+        mesesRecorrenciaEl.classList.add("hidden");
+      }
+    });
 
     // Selects mês/ano
     const mesSelect = document.getElementById("mesSelect");
@@ -424,21 +482,21 @@
       });
     });
 
-    // Gráfico ANUAL
+    // Gráfico misto
     const ctx = document.getElementById("financeChart").getContext("2d");
     const financeChart = new Chart(ctx, {
-      type: "line",
       data: {
         labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
         datasets: [
-          { label: "Receitas", data: Array(12).fill(0), tension: 0.3, borderWidth: 2 },
-          { label: "Despesas", data: Array(12).fill(0), tension: 0.3, borderWidth: 2 },
-          { label: "Saldo", data: Array(12).fill(0), tension: 0.3, borderWidth: 2 }
+          { type: "bar", label: "Receitas", data: Array(12).fill(0), borderWidth: 1 },
+          { type: "bar", label: "Despesas", data: Array(12).fill(0), borderWidth: 1 },
+          { type: "line", label: "Saldo", data: Array(12).fill(0), tension: 0.3, borderWidth: 3, pointRadius: 4 }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
         plugins: {
           legend: { labels: { color: "#fff" } },
           tooltip: {
@@ -475,6 +533,8 @@
     function addReceita() {
       const descInput = document.getElementById("descReceita");
       const valorInput = document.getElementById("valorReceita");
+      const tipoReceita = document.getElementById("tipoReceita").value;
+      const mesesRec = parseInt(document.getElementById("mesesRecorrenciaReceita").value, 10);
 
       const desc = descInput.value.trim();
       const valor = parseFloat(valorInput.value);
@@ -484,14 +544,43 @@
         return;
       }
 
-      bucketAtual().receitas.push({
-        id: Date.now(),
-        desc,
-        valor
-      });
+      if (tipoReceita === "unica") {
+        bucketAtual().receitas.push({
+          id: uid(),
+          desc,
+          valor,
+          tipo: "unica"
+        });
+      } else {
+        if (isNaN(mesesRec) || mesesRec < 1) {
+          alert("Informe uma quantidade de meses válida para a recorrência.");
+          return;
+        }
+
+        const grupoId = "rec-" + uid();
+
+        for (let i = 0; i < mesesRec; i++) {
+          const destino = somarMeses(state.selected.month, state.selected.year, i);
+          const bucket = bucketBy(destino.month, destino.year);
+
+          bucket.receitas.push({
+            id: uid(),
+            grupoId,
+            desc,
+            valor,
+            tipo: "recorrente",
+            recorrenciaTotal: mesesRec,
+            recorrenciaAtual: i + 1
+          });
+        }
+      }
 
       descInput.value = "";
       valorInput.value = "";
+      document.getElementById("tipoReceita").value = "unica";
+      mesesRecorrenciaEl.value = "12";
+      mesesRecorrenciaEl.classList.add("hidden");
+
       atualizarTudo();
     }
 
@@ -514,15 +603,14 @@
         return;
       }
 
-      const grupoId = Date.now().toString();
+      const grupoId = "desp-" + uid();
 
-      // Cria parcelas nos próximos meses (sem dividir valor)
       for (let i = 0; i < parcelas; i++) {
         const destino = somarMeses(state.selected.month, state.selected.year, i);
         const bucket = bucketBy(destino.month, destino.year);
 
         bucket.despesas.push({
-          id: Number(`${Date.now()}${i}`),
+          id: uid(),
           grupoId,
           desc,
           valor,
@@ -534,6 +622,20 @@
       descInput.value = "";
       valorInput.value = "";
       parcelasInput.value = "1";
+      atualizarTudo();
+    }
+
+    // EXCLUIR RECEITA (mês atual)
+    function excluirReceita(id) {
+      const bucket = bucketAtual();
+      bucket.receitas = bucket.receitas.filter(item => item.id !== id);
+      atualizarTudo();
+    }
+
+    // EXCLUIR DESPESA (mês atual)
+    function excluirDespesa(id) {
+      const bucket = bucketAtual();
+      bucket.despesas = bucket.despesas.filter(item => item.id !== id);
       atualizarTudo();
     }
 
@@ -556,15 +658,24 @@
       const emptyReceitas = document.getElementById("emptyReceitas");
       const emptyDespesas = document.getElementById("emptyDespesas");
 
-      listaReceitas.innerHTML = bucket.receitas.map(item => `
-        <li class="list-item">
-          <div class="item-left">
-            <strong>${item.desc}</strong>
-            <span>${textoPeriodoAtual()}</span>
-          </div>
-          <div class="item-value receita">${formatarBRL(item.valor)}</div>
-        </li>
-      `).join("");
+      listaReceitas.innerHTML = bucket.receitas.map(item => {
+        let info = textoPeriodoAtual();
+        if (item.tipo === "recorrente") {
+          info += ` • Recorrência ${item.recorrenciaAtual}/${item.recorrenciaTotal}`;
+        }
+        return `
+          <li class="list-item">
+            <div class="item-left">
+              <strong>${item.desc}</strong>
+              <span>${info}</span>
+            </div>
+            <div class="item-actions">
+              <div class="item-value receita">${formatarBRL(item.valor)}</div>
+              <button class="btn-delete" onclick="excluirReceita('${item.id}')">Excluir</button>
+            </div>
+          </li>
+        `;
+      }).join("");
 
       listaDespesas.innerHTML = bucket.despesas.map(item => `
         <li class="list-item">
@@ -572,7 +683,10 @@
             <strong>${item.desc}</strong>
             <span>${textoPeriodoAtual()} • Parcela ${item.parcelaAtual}/${item.parcelasTotal}</span>
           </div>
-          <div class="item-value despesa">${formatarBRL(item.valor)}</div>
+          <div class="item-actions">
+            <div class="item-value despesa">${formatarBRL(item.valor)}</div>
+            <button class="btn-delete" onclick="excluirDespesa('${item.id}')">Excluir</button>
+          </div>
         </li>
       `).join("");
 
@@ -596,7 +710,6 @@
       saldoEl.classList.add(saldo >= 0 ? "positivo" : "negativo");
     }
 
-    // ✅ Gráfico agora sempre soma o ANO TODO selecionado
     function atualizarGrafico() {
       const receitasAno = [];
       const despesasAno = [];
