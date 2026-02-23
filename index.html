@@ -54,8 +54,18 @@
     }
     .logout-btn:hover { background: #dc2626; }
 
-    nav ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    /* ✅ NAVE EM LINHA */
+    nav ul {
+      list-style: none;
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
     nav li {
+      flex: 1 1 120px;
+      text-align: center;
       padding: 14px;
       background: #334155;
       border-radius: 10px;
@@ -64,6 +74,7 @@
       border: 1px solid transparent;
       user-select: none;
     }
+
     nav li:hover { background: #475569; }
     nav li.active { border-color: #60a5fa; background: #1d4ed8; }
 
@@ -364,6 +375,35 @@
   </div>
 
   <script>
+      /* =========================
+     FIREBASE CONFIG
+  ========================== */
+  const firebaseConfig = {
+    apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
+    authDomain: "financasmensaispaulods.firebaseapp.com",
+    projectId: "financasmensaispaulods",
+    storageBucket: "financasmensaispaulods.firebasestorage.app",
+    messagingSenderId: "168499253940",
+    appId: "1:168499253940:web:8d14795ad8195858283de1"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const googleProvider = new GoogleAuthProvider();
+
+  /* =========================
+     ESTADO DO APP
+  ========================== */
+  let currentUser = null; // Firebase user
+
+  const state = {
+    selected: {
+      month: new Date().getMonth(),
+      year: new Date().getFullYear()
+    },
+    data: {}
+  };
     const usuario = {
       nome: "Paulo Rodrigues",
       email: "paulo@email.com",
