@@ -442,12 +442,8 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
   onAuthStateChanged,
-  signOut,
-  GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult
+  signOut
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
 import {
@@ -457,7 +453,7 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-/* ================= FIREBASE ================= */
+/* FIREBASE */
 
 const firebaseConfig = {
   apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
@@ -471,9 +467,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
 
-/* ================= ELEMENTOS ================= */
+/* ELEMENTOS */
 
 const $ = id => document.getElementById(id);
 
@@ -482,8 +477,6 @@ const loginEmail = $("loginEmail");
 const loginPass = $("loginPass");
 const btnLogin = $("btnLogin");
 const btnRegister = $("btnRegister");
-const btnResetPass = $("btnResetPass");
-const btnGoogleLogin = $("btnGoogleLogin");
 
 const userPhoto = $("userPhoto");
 const userName = $("userName");
@@ -495,7 +488,6 @@ const anoSelect = $("anoSelect");
 const totalReceitas = $("totalReceitas");
 const totalDespesas = $("totalDespesas");
 const saldoTotal = $("saldoTotal");
-const patrimonioAcumulado = $("patrimonioAcumulado");
 
 const descReceita = $("descReceita");
 const valorReceita = $("valorReceita");
@@ -511,9 +503,9 @@ const listaDespesas = $("listaDespesas");
 const emptyReceitas = $("emptyReceitas");
 const emptyDespesas = $("emptyDespesas");
 
-const financeCanvas = $("financeChart");
+const financeChartCanvas = $("financeChart");
 
-/* ================= ESTADO ================= */
+/* ESTADO */
 
 let currentUser = null;
 
@@ -530,7 +522,7 @@ const state = {
   data: {}
 };
 
-/* ================= UTIL ================= */
+/* UTIL */
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
@@ -563,7 +555,7 @@ function somarMeses(month, year, add) {
   return { month: base.getMonth(), year: base.getFullYear() };
 }
 
-/* ================= SELECTS ================= */
+/* SELECTS */
 
 function initMonthYear() {
 
@@ -601,11 +593,10 @@ function initMonthYear() {
   };
 }
 
-/* ================= FIRESTORE ================= */
+/* FIRESTORE */
 
 async function salvarDados() {
   if (!currentUser) return;
-
   await setDoc(doc(db, "finance_users", currentUser.uid), {
     selected: state.selected,
     data: state.data
@@ -621,7 +612,7 @@ async function carregarDados() {
   }
 }
 
-/* ================= AUTH ================= */
+/* AUTH */
 
 btnRegister.onclick = async () => {
   await createUserWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
@@ -632,25 +623,11 @@ btnLogin.onclick = async () => {
   await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
 };
 
-btnGoogleLogin.onclick = async () => {
-  await signInWithRedirect(auth, provider);
-};
-
-btnResetPass.onclick = async () => {
-  await sendPasswordResetEmail(auth, loginEmail.value);
-  alert("E-mail enviado!");
-};
-
 window.logout = async () => {
   await signOut(auth);
-  localStorage.clear();
-  sessionStorage.clear();
-  location.reload();
 };
 
-/* ================= AUTH STATE ================= */
-
-await getRedirectResult(auth).catch(()=>{});
+/* AUTH STATE */
 
 onAuthStateChanged(auth, async (user) => {
 
@@ -659,9 +636,8 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     loginScreen.style.display = "none";
 
-    userName.textContent = user.displayName || user.email;
+    userName.textContent = user.email;
     userEmail.textContent = user.email;
-    userPhoto.src = user.photoURL || "https://i.pravatar.cc/150?img=12";
 
     await carregarDados();
 
@@ -676,9 +652,10 @@ onAuthStateChanged(auth, async (user) => {
     initMonthYear();
     atualizarTudo();
   }
+
 });
 
-/* ================= RECEITA ================= */
+/* RECEITA */
 
 window.addReceita = async () => {
 
@@ -699,9 +676,7 @@ window.addReceita = async () => {
       bucketBy(destino.month, destino.year).receitas.push({
         id: uid(),
         desc,
-        valor,
-        recorrenciaAtual: i + 1,
-        recorrenciaTotal: meses
+        valor
       });
     }
   }
@@ -713,7 +688,7 @@ window.addReceita = async () => {
   atualizarTudo();
 };
 
-/* ================= DESPESA ================= */
+/* DESPESA */
 
 window.addDespesa = async () => {
 
@@ -730,9 +705,7 @@ window.addDespesa = async () => {
     bucketBy(destino.month, destino.year).despesas.push({
       id: uid(),
       desc,
-      valor,
-      parcelaAtual: i + 1,
-      parcelasTotal: parcelas
+      valor
     });
   }
 
@@ -744,9 +717,23 @@ window.addDespesa = async () => {
   atualizarTudo();
 };
 
-/* ================= GRAFICO ================= */
+/* RENDER */
 
-const financeChart = new Chart(financeCanvas.getContext("2d"), {
+function atualizarResumo() {
+
+  const bucket = bucketAtual();
+
+  const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
+  const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
+
+  totalReceitas.textContent = formatarBRL(totalR);
+  totalDespesas.textContent = formatarBRL(totalD);
+  saldoTotal.textContent = formatarBRL(totalR - totalD);
+}
+
+/* GRÁFICO */
+
+const financeChart = new Chart(financeChartCanvas.getContext("2d"), {
   data: {
     labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
     datasets: [
@@ -780,16 +767,6 @@ function atualizarGrafico() {
   financeChart.update();
 }
 
-function atualizarResumo() {
-  const bucket = bucketAtual();
-  const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
-  const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
-
-  totalReceitas.textContent = formatarBRL(totalR);
-  totalDespesas.textContent = formatarBRL(totalD);
-  saldoTotal.textContent = formatarBRL(totalR - totalD);
-}
-
 function atualizarTudo() {
   atualizarResumo();
   atualizarGrafico();
@@ -798,6 +775,7 @@ function atualizarTudo() {
 </script>
 </body>
 </html>
+
 
 
 
