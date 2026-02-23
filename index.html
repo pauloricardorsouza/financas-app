@@ -436,7 +436,6 @@
     </main>
   </div>
 <script type="module">
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import {
   getAuth,
@@ -449,7 +448,6 @@ import {
   signInWithRedirect,
   getRedirectResult
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-
 import {
   getFirestore,
   doc,
@@ -457,13 +455,21 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-/* ================= FIREBASE ================= */
+/* =========================
+   ATENÇÃO: NÃO RODA EM file://
+========================= */
+if (location.protocol === "file:") {
+  alert("Abra esse projeto em http://localhost ou em um site https (ex: GitHub Pages). Firebase não funciona em file://");
+}
 
+/* =========================
+   FIREBASE CONFIG
+========================= */
 const firebaseConfig = {
   apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
   authDomain: "financasmensaispaulods.firebaseapp.com",
   projectId: "financasmensaispaulods",
-  storageBucket: "financasmensaispaulods.appspot.com",
+  storageBucket: "financasmensaispaulods.firebasestorage.app",
   messagingSenderId: "168499253940",
   appId: "1:168499253940:web:8d14795ad8195858283de1"
 };
@@ -471,31 +477,82 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
+const googleProvider = new GoogleAuthProvider();
 
-/* ================= ESTADO ================= */
+/* =========================
+   ELEMENTOS (IDs NÃO SÃO GLOBAIS EM MODULE!)
+========================= */
+const $ = (id) => document.getElementById(id);
 
+const loginScreen = $("loginScreen");
+const loginEmail  = $("loginEmail");
+const loginPass   = $("loginPass");
+const btnLogin    = $("btnLogin");
+const btnRegister = $("btnRegister");
+const btnResetPass = $("btnResetPass");
+const btnGoogleLogin = $("btnGoogleLogin");
+
+const userPhoto = $("userPhoto");
+const userName  = $("userName");
+const userEmail = $("userEmail");
+
+const mesSelect = $("mesSelect");
+const anoSelect = $("anoSelect");
+
+const totalReceitas = $("totalReceitas");
+const totalDespesas = $("totalDespesas");
+const saldoTotal = $("saldoTotal");
+const patrimonioAcumulado = $("patrimonioAcumulado");
+
+const descReceita = $("descReceita");
+const valorReceita = $("valorReceita");
+const tipoReceita = $("tipoReceita");
+const mesesRecorrenciaReceita = $("mesesRecorrenciaReceita");
+
+const descDespesa = $("descDespesa");
+const valorDespesa = $("valorDespesa");
+const parcelasDespesa = $("parcelasDespesa");
+
+const listaReceitas = $("listaReceitas");
+const listaDespesas = $("listaDespesas");
+const emptyReceitas = $("emptyReceitas");
+const emptyDespesas = $("emptyDespesas");
+
+const financeCanvas = $("financeChart");
+
+/* =========================
+   ESTADO
+========================= */
 let currentUser = null;
 
+const mesesNomes = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+];
+
 const state = {
-  selected: {
-    month: new Date().getMonth(),
-    year: new Date().getFullYear()
-  },
-  data: {}
+  selected: { month: new Date().getMonth(), year: new Date().getFullYear() },
+  data: {} // { "2026-02": { receitas:[], despesas:[] }, ... }
 };
 
-/* ================= UTIL ================= */
-
+/* =========================
+   UTIL
+========================= */
 function uid() {
-  return Date.now() + Math.random().toString(36).slice(2);
+  return `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
 }
 
 function formatarBRL(valor) {
-  return Number(valor || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
+  return Number(valor || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
 }
 
 function keyMY(m, y) {
@@ -508,215 +565,475 @@ function bucketBy(m, y) {
   return state.data[k];
 }
 
-function somarMeses(m, y, add) {
-  const d = new Date(y, m, 1);
-  d.setMonth(d.getMonth() + add);
-  return { month: d.getMonth(), year: d.getFullYear() };
+function bucketAtual() {
+  return bucketBy(state.selected.month, state.selected.year);
 }
 
-/* ================= FIRESTORE ================= */
+function somarMeses(month, year, add) {
+  const base = new Date(year, month, 1);
+  base.setMonth(base.getMonth() + add);
+  return { month: base.getMonth(), year: base.getFullYear() };
+}
 
-async function salvarDados() {
+function textoPeriodoAtual() {
+  return `${mesesNomes[state.selected.month]}/${state.selected.year}`;
+}
+
+/* =========================
+   FIRESTORE SALVAR/CARREGAR
+========================= */
+async function salvarDadosUsuario() {
   if (!currentUser) return;
   await setDoc(doc(db, "finance_users", currentUser.uid), {
+    selected: state.selected,
     data: state.data,
-    selected: state.selected
+    updatedAt: new Date().toISOString()
   }, { merge: true });
 }
 
-async function carregarDados() {
-  const snap = await getDoc(doc(db, "finance_users", currentUser.uid));
+async function carregarDadosUsuario() {
+  if (!currentUser) return;
+
+  const ref = doc(db, "finance_users", currentUser.uid);
+  const snap = await getDoc(ref);
+
   if (snap.exists()) {
     const payload = snap.data();
     state.data = payload.data || {};
     state.selected = payload.selected || state.selected;
+  } else {
+    state.data = {};
   }
 }
 
-/* ================= AUTH ================= */
+/* =========================
+   SELECT MÊS/ANO
+========================= */
+function initMonthYear() {
+  mesSelect.innerHTML = "";
+  mesesNomes.forEach((nome, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = nome;
+    mesSelect.appendChild(opt);
+  });
 
-btnRegister.onclick = async () => {
-  try {
-    await createUserWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
-    alert("Cadastro realizado!");
-  } catch (err) {
-    alert(err.message);
+  const anoAtual = new Date().getFullYear();
+  anoSelect.innerHTML = "";
+  for (let ano = anoAtual - 5; ano <= anoAtual + 5; ano++) {
+    const opt = document.createElement("option");
+    opt.value = String(ano);
+    opt.textContent = String(ano);
+    anoSelect.appendChild(opt);
   }
-};
 
-btnLogin.onclick = async () => {
-  try {
-    await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
-  } catch (err) {
-    alert(err.message);
+  mesSelect.value = String(state.selected.month);
+  anoSelect.value = String(state.selected.year);
+
+  mesSelect.addEventListener("change", async () => {
+    state.selected.month = Number(mesSelect.value);
+    await salvarDadosUsuario();
+    atualizarTudo();
+  });
+
+  anoSelect.addEventListener("change", async () => {
+    state.selected.year = Number(anoSelect.value);
+    await salvarDadosUsuario();
+    atualizarTudo();
+  });
+}
+
+/* =========================
+   MENU (SESSÕES)
+========================= */
+document.querySelectorAll(".menu-item").forEach(item => {
+  item.addEventListener("click", () => {
+    document.querySelectorAll(".menu-item").forEach(i => i.classList.remove("active"));
+    item.classList.add("active");
+
+    const target = item.dataset.target;
+    document.querySelectorAll(".section").forEach(sec => sec.classList.remove("active"));
+    $(target).classList.add("active");
+
+    if (target === "graficos") {
+      setTimeout(() => {
+        financeChart.resize();
+        financeChart.update();
+      }, 100);
+    }
+  });
+});
+
+/* =========================
+   TOGGLE RECORRÊNCIA RECEITA
+========================= */
+tipoReceita.addEventListener("change", () => {
+  if (tipoReceita.value === "recorrente") {
+    mesesRecorrenciaReceita.classList.remove("hidden");
+  } else {
+    mesesRecorrenciaReceita.classList.add("hidden");
   }
-};
+});
 
-btnGoogleLogin.onclick = async () => {
-  await signInWithRedirect(auth, provider);
-};
+/* =========================
+   LOGIN
+========================= */
+btnRegister.addEventListener("click", async () => {
+  const email = loginEmail.value.trim().toLowerCase();
+  const pass = loginPass.value.trim();
+  if (!email || !pass) return alert("Preencha e-mail e senha.");
 
-btnResetPass.onclick = async () => {
-  await sendPasswordResetEmail(auth, loginEmail.value);
-  alert("E-mail enviado!");
-};
+  try {
+    await createUserWithEmailAndPassword(auth, email, pass);
+    alert("Cadastro realizado! Você já pode entrar.");
+  } catch (err) {
+    console.error(err);
+    alert(traduzErroFirebase(err));
+  }
+});
+
+btnLogin.addEventListener("click", async () => {
+  const email = loginEmail.value.trim().toLowerCase();
+  const pass = loginPass.value.trim();
+  if (!email || !pass) return alert("Preencha e-mail e senha.");
+
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    console.error(err);
+    alert(traduzErroFirebase(err));
+  }
+});
+
+btnResetPass.addEventListener("click", async () => {
+  const email = loginEmail.value.trim().toLowerCase();
+  if (!email) return alert("Digite seu e-mail para redefinir.");
+
+  try {
+    await sendPasswordResetEmail(auth, email);
+    alert("E-mail de redefinição enviado.");
+  } catch (err) {
+    console.error(err);
+    alert(traduzErroFirebase(err));
+  }
+});
+
+/* ✅ Google login: Redirect (funciona mobile e pages) */
+btnGoogleLogin.addEventListener("click", async () => {
+  try {
+    await signInWithRedirect(auth, googleProvider);
+  } catch (err) {
+    console.error(err);
+    alert(traduzErroFirebase(err));
+  }
+});
 
 window.logout = async () => {
-  await signOut(auth);
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao sair.");
+  }
 };
 
-/* ================= AUTH STATE ================= */
+/* =========================
+   AUTH STATE
+========================= */
+await getRedirectResult(auth).catch(() => {});
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
     loginScreen.style.display = "none";
 
-    userName.textContent = user.displayName || user.email;
-    userEmail.textContent = user.email;
+    userName.textContent = user.displayName || (user.email ? user.email.split("@")[0] : "Usuário");
+    userEmail.textContent = user.email || "—";
     userPhoto.src = user.photoURL || "https://i.pravatar.cc/150?img=12";
 
-    await carregarDados();
+    await carregarDadosUsuario();
+    initMonthYear();
     atualizarTudo();
   } else {
     currentUser = null;
-    loginScreen.style.display = "flex";
+
     state.data = {};
+    state.selected = { month: new Date().getMonth(), year: new Date().getFullYear() };
+
+    userName.textContent = "Usuário";
+    userEmail.textContent = "Faça login";
+    userPhoto.src = "https://i.pravatar.cc/150?img=12";
+
+    initMonthYear();
+    loginScreen.style.display = "flex";
+    atualizarTudo();
   }
 });
 
-await getRedirectResult(auth).catch(()=>{});
-
-/* ================= RECEITA ================= */
-
+/* =========================
+   AÇÕES: RECEITAS / DESPESAS
+========================= */
 window.addReceita = async () => {
+  if (!currentUser) return alert("Faça login.");
+
   const desc = descReceita.value.trim();
   const valor = parseFloat(valorReceita.value);
   const tipo = tipoReceita.value;
-  const meses = parseInt(mesesRecorrenciaReceita.value);
+  const mesesRec = parseInt(mesesRecorrenciaReceita.value, 10);
 
-  if (!desc || !valor) return alert("Preencha os campos.");
+  if (!desc || isNaN(valor) || valor <= 0) return alert("Preencha descrição e valor válidos.");
 
   if (tipo === "unica") {
-    bucketBy(state.selected.month, state.selected.year)
-      .receitas.push({ id: uid(), desc, valor });
+    bucketAtual().receitas.push({ id: uid(), desc, valor, tipo: "unica" });
   } else {
-    for (let i = 0; i < meses; i++) {
+    if (isNaN(mesesRec) || mesesRec < 1) return alert("Meses de recorrência inválido.");
+
+    const grupoId = "rec-" + uid();
+    for (let i = 0; i < mesesRec; i++) {
       const destino = somarMeses(state.selected.month, state.selected.year, i);
-      bucketBy(destino.month, destino.year)
-        .receitas.push({
-          id: uid(),
-          desc,
-          valor,
-          recorrenciaAtual: i + 1,
-          recorrenciaTotal: meses
-        });
+      bucketBy(destino.month, destino.year).receitas.push({
+        id: uid(),
+        grupoId,
+        desc,
+        valor,
+        tipo: "recorrente",
+        recorrenciaAtual: i + 1,
+        recorrenciaTotal: mesesRec
+      });
     }
   }
 
   descReceita.value = "";
   valorReceita.value = "";
+  tipoReceita.value = "unica";
   mesesRecorrenciaReceita.value = "12";
+  mesesRecorrenciaReceita.classList.add("hidden");
 
-  await salvarDados();
+  await salvarDadosUsuario();
   atualizarTudo();
 };
 
-/* ================= DESPESA ================= */
-
 window.addDespesa = async () => {
+  if (!currentUser) return alert("Faça login.");
+
   const desc = descDespesa.value.trim();
   const valor = parseFloat(valorDespesa.value);
-  const parcelas = parseInt(parcelasDespesa.value);
+  const parcelas = parseInt(parcelasDespesa.value, 10);
 
-  if (!desc || !valor || !parcelas) return alert("Preencha os campos.");
+  if (!desc || isNaN(valor) || valor <= 0) return alert("Preencha descrição e valor válidos.");
+  if (isNaN(parcelas) || parcelas < 1) return alert("Parcelas inválidas.");
+
+  const grupoId = "desp-" + uid();
 
   for (let i = 0; i < parcelas; i++) {
     const destino = somarMeses(state.selected.month, state.selected.year, i);
-    bucketBy(destino.month, destino.year)
-      .despesas.push({
-        id: uid(),
-        desc,
-        valor,
-        parcelaAtual: i + 1,
-        parcelasTotal: parcelas
-      });
+    bucketBy(destino.month, destino.year).despesas.push({
+      id: uid(),
+      grupoId,
+      desc,
+      valor,
+      parcelasTotal: parcelas,
+      parcelaAtual: i + 1
+    });
   }
 
   descDespesa.value = "";
   valorDespesa.value = "";
   parcelasDespesa.value = "1";
 
-  await salvarDados();
+  await salvarDadosUsuario();
   atualizarTudo();
 };
 
-/* ================= EXCLUSÃO ================= */
-
 window.excluirReceita = async (id) => {
-  const bucket = bucketBy(state.selected.month, state.selected.year);
-  bucket.receitas = bucket.receitas.filter(r => r.id !== id);
-  await salvarDados();
+  const b = bucketAtual();
+  b.receitas = b.receitas.filter(x => x.id !== id);
+  await salvarDadosUsuario();
   atualizarTudo();
 };
 
 window.excluirDespesa = async (id) => {
-  const bucket = bucketBy(state.selected.month, state.selected.year);
-  bucket.despesas = bucket.despesas.filter(d => d.id !== id);
-  await salvarDados();
+  const b = bucketAtual();
+  b.despesas = b.despesas.filter(x => x.id !== id);
+  await salvarDadosUsuario();
   atualizarTudo();
 };
 
-/* ================= RENDER ================= */
+/* =========================
+   RENDER
+========================= */
+function renderListas() {
+  const b = bucketAtual();
+
+  listaReceitas.innerHTML = b.receitas.map(item => {
+    let info = textoPeriodoAtual();
+    if (item.tipo === "recorrente") info += ` • Recorrência ${item.recorrenciaAtual}/${item.recorrenciaTotal}`;
+    return `
+      <li class="list-item">
+        <div class="item-left">
+          <strong>${escapeHtml(item.desc)}</strong>
+          <span>${info}</span>
+        </div>
+        <div class="item-actions">
+          <div class="item-value receita">${formatarBRL(item.valor)}</div>
+          <button class="btn-delete" onclick="excluirReceita('${item.id}')">Excluir</button>
+        </div>
+      </li>
+    `;
+  }).join("");
+
+  listaDespesas.innerHTML = b.despesas.map(item => `
+    <li class="list-item">
+      <div class="item-left">
+        <strong>${escapeHtml(item.desc)}</strong>
+        <span>${textoPeriodoAtual()} • Parcela ${item.parcelaAtual}/${item.parcelasTotal}</span>
+      </div>
+      <div class="item-actions">
+        <div class="item-value despesa">${formatarBRL(item.valor)}</div>
+        <button class="btn-delete" onclick="excluirDespesa('${item.id}')">Excluir</button>
+      </div>
+    </li>
+  `).join("");
+
+  emptyReceitas.style.display = b.receitas.length ? "none" : "block";
+  emptyDespesas.style.display = b.despesas.length ? "none" : "block";
+}
+
+function atualizarResumo() {
+  const b = bucketAtual();
+
+  const totalR = b.receitas.reduce((acc, it) => acc + Number(it.valor || 0), 0);
+  const totalD = b.despesas.reduce((acc, it) => acc + Number(it.valor || 0), 0);
+  const saldo = totalR - totalD;
+
+  // patrimônio acumulado do ano até o mês selecionado
+  let patrimonio = 0;
+  for (let mes = 0; mes <= state.selected.month; mes++) {
+    const bb = bucketBy(mes, state.selected.year);
+    const r = bb.receitas.reduce((a, it) => a + Number(it.valor || 0), 0);
+    const d = bb.despesas.reduce((a, it) => a + Number(it.valor || 0), 0);
+    patrimonio += (r - d);
+  }
+
+  totalReceitas.textContent = formatarBRL(totalR);
+  totalDespesas.textContent = formatarBRL(totalD);
+
+  saldoTotal.textContent = formatarBRL(saldo);
+  saldoTotal.classList.remove("positivo","negativo");
+  saldoTotal.classList.add(saldo >= 0 ? "positivo" : "negativo");
+
+  patrimonioAcumulado.textContent = formatarBRL(patrimonio);
+  patrimonioAcumulado.classList.remove("positivo","negativo");
+  patrimonioAcumulado.classList.add(patrimonio >= 0 ? "positivo" : "negativo");
+}
+
+/* =========================
+   GRÁFICO (ANUAL + PATRIMÔNIO)
+========================= */
+const financeChart = new Chart(financeCanvas.getContext("2d"), {
+  data: {
+    labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
+    datasets: [
+      { type:"bar", label:"Receitas", data: Array(12).fill(0), borderWidth: 1 },
+      { type:"bar", label:"Despesas", data: Array(12).fill(0), borderWidth: 1 },
+      { type:"line", label:"Saldo", data: Array(12).fill(0), tension: 0.3, borderWidth: 3, pointRadius: 4 },
+      { type:"line", label:"Patrimônio", data: Array(12).fill(0), tension: 0.25, borderWidth: 3, pointRadius: 4 }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { labels: { color: "#fff" } },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => ` ${ctx.dataset.label}: ${formatarBRL(ctx.raw)}`
+        }
+      }
+    },
+    scales: {
+      x: { ticks: { color: "#cbd5e1" }, grid: { color: "rgba(255,255,255,0.08)" } },
+      y: {
+        ticks: {
+          color: "#cbd5e1",
+          callback: (v) => "R$ " + Number(v).toLocaleString("pt-BR")
+        },
+        grid: { color: "rgba(255,255,255,0.08)" }
+      }
+    }
+  }
+});
+
+function atualizarGrafico() {
+  const receitasAno = [];
+  const despesasAno = [];
+  const saldoAno = [];
+  const patrimonioAno = [];
+
+  let patrimonio = 0;
+
+  for (let mes = 0; mes < 12; mes++) {
+    const b = bucketBy(mes, state.selected.year);
+    const r = b.receitas.reduce((a, it) => a + Number(it.valor || 0), 0);
+    const d = b.despesas.reduce((a, it) => a + Number(it.valor || 0), 0);
+    const s = r - d;
+
+    patrimonio += s;
+
+    receitasAno.push(r);
+    despesasAno.push(d);
+    saldoAno.push(s);
+    patrimonioAno.push(patrimonio);
+  }
+
+  financeChart.data.datasets[0].label = `Receitas (${state.selected.year})`;
+  financeChart.data.datasets[1].label = `Despesas (${state.selected.year})`;
+  financeChart.data.datasets[2].label = `Saldo (${state.selected.year})`;
+  financeChart.data.datasets[3].label = `Patrimônio (${state.selected.year})`;
+
+  financeChart.data.datasets[0].data = receitasAno;
+  financeChart.data.datasets[1].data = despesasAno;
+  financeChart.data.datasets[2].data = saldoAno;
+  financeChart.data.datasets[3].data = patrimonioAno;
+
+  financeChart.update();
+}
 
 function atualizarTudo() {
+  renderListas();
   atualizarResumo();
   atualizarGrafico();
 }
 
-function atualizarResumo() {
-  const bucket = bucketBy(state.selected.month, state.selected.year);
-  const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
-  const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
-
-  totalReceitas.textContent = formatarBRL(totalR);
-  totalDespesas.textContent = formatarBRL(totalD);
-  saldoTotal.textContent = formatarBRL(totalR - totalD);
+/* =========================
+   ERROS FIREBASE PT-BR
+========================= */
+function traduzErroFirebase(err) {
+  const code = err?.code || "";
+  const mapa = {
+    "auth/email-already-in-use": "Este e-mail já está em uso.",
+    "auth/invalid-email": "E-mail inválido.",
+    "auth/weak-password": "Senha muito fraca (mínimo 6 caracteres).",
+    "auth/user-not-found": "Usuário não encontrado.",
+    "auth/wrong-password": "Senha incorreta.",
+    "auth/invalid-credential": "Credenciais inválidas.",
+    "auth/popup-closed-by-user": "Login com Google cancelado.",
+    "auth/network-request-failed": "Falha de conexão. Verifique sua internet.",
+    "auth/too-many-requests": "Muitas tentativas. Tente mais tarde.",
+    "auth/operation-not-allowed": "Método de login não habilitado no Firebase."
+  };
+  return mapa[code] || (err?.message || "Ocorreu um erro.");
 }
 
-/* ================= GRÁFICO ================= */
-
-const chart = new Chart(financeChart,{
-  type:"bar",
-  data:{
-    labels:["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
-    datasets:[
-      {label:"Receitas",data:Array(12).fill(0)},
-      {label:"Despesas",data:Array(12).fill(0)},
-      {label:"Saldo",type:"line",data:Array(12).fill(0)}
-    ]
-  }
-});
-
-function atualizarGrafico(){
-  const receitas=[];
-  const despesas=[];
-  const saldo=[];
-  for(let m=0;m<12;m++){
-    const b=bucketBy(m,state.selected.year);
-    const r=b.receitas.reduce((a,b)=>a+b.valor,0);
-    const d=b.despesas.reduce((a,b)=>a+b.valor,0);
-    receitas.push(r);
-    despesas.push(d);
-    saldo.push(r-d);
-  }
-  chart.data.datasets[0].data=receitas;
-  chart.data.datasets[1].data=despesas;
-  chart.data.datasets[2].data=saldo;
-  chart.update();
-}
+/* =========================
+   INICIALIZAÇÃO
+========================= */
+initMonthYear();
+atualizarTudo();
 
 </script>
 </body>
 </html>
+
 
