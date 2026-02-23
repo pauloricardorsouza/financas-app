@@ -694,11 +694,10 @@ async function carregarDados() {
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-
     currentUser = user;
     document.getElementById("loginScreen").style.display = "none";
 
-    await carregarDados(); // 🔥 garante que carregou do Firestore
+    await carregarDados();
 
     document.getElementById("userName").textContent =
       user.displayName || user.email;
@@ -708,14 +707,11 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById("userPhoto").src =
       profileFoto || user.photoURL || gerarAvatarInicial();
 
-    atualizarTudo(); // 🔥 ATUALIZA TUDO DEPOIS DE CARREGAR
+    atualizarTudo();
 
   } else {
-
     currentUser = null;
-    state.data = {}; // limpa memória
     document.getElementById("loginScreen").style.display = "flex";
-
   }
 });
 
@@ -802,4 +798,5 @@ function atualizarGrafico() {
 </script>
 </body>
 </html>
+
 
