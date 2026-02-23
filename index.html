@@ -511,7 +511,7 @@ const listaDespesas = $("listaDespesas");
 const emptyReceitas = $("emptyReceitas");
 const emptyDespesas = $("emptyDespesas");
 
-const financeChartCanvas = $("financeChart");
+const financeCanvas = $("financeChart");
 
 /* ================= ESTADO ================= */
 
@@ -605,6 +605,7 @@ function initMonthYear() {
 
 async function salvarDados() {
   if (!currentUser) return;
+
   await setDoc(doc(db, "finance_users", currentUser.uid), {
     selected: state.selected,
     data: state.data
@@ -623,20 +624,12 @@ async function carregarDados() {
 /* ================= AUTH ================= */
 
 btnRegister.onclick = async () => {
-  try {
-    await createUserWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
-    alert("Cadastro realizado!");
-  } catch (err) {
-    alert(err.message);
-  }
+  await createUserWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
+  alert("Cadastro realizado!");
 };
 
 btnLogin.onclick = async () => {
-  try {
-    await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
-  } catch (err) {
-    alert(err.message);
-  }
+  await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
 };
 
 btnGoogleLogin.onclick = async () => {
@@ -650,9 +643,9 @@ btnResetPass.onclick = async () => {
 
 window.logout = async () => {
   await signOut(auth);
-  currentUser = null;
-  state.data = {};
-  loginScreen.style.display = "flex";
+  localStorage.clear();
+  sessionStorage.clear();
+  location.reload();
 };
 
 /* ================= AUTH STATE ================= */
@@ -662,6 +655,7 @@ await getRedirectResult(auth).catch(()=>{});
 onAuthStateChanged(auth, async (user) => {
 
   if (user) {
+
     currentUser = user;
     loginScreen.style.display = "none";
 
@@ -678,17 +672,10 @@ onAuthStateChanged(auth, async (user) => {
 
     currentUser = null;
     loginScreen.style.display = "flex";
-
     state.data = {};
-    state.selected = {
-      month: new Date().getMonth(),
-      year: new Date().getFullYear()
-    };
-
     initMonthYear();
     atualizarTudo();
   }
-
 });
 
 /* ================= RECEITA ================= */
@@ -757,32 +744,9 @@ window.addDespesa = async () => {
   atualizarTudo();
 };
 
-/* ================= RENDER ================= */
-
-function atualizarResumo() {
-
-  const bucket = bucketAtual();
-
-  const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
-  const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
-  const saldo = totalR - totalD;
-
-  let patrimonio = 0;
-  for (let m = 0; m <= state.selected.month; m++) {
-    const b = bucketBy(m, state.selected.year);
-    patrimonio += b.receitas.reduce((a,b)=>a+b.valor,0) -
-                  b.despesas.reduce((a,b)=>a+b.valor,0);
-  }
-
-  totalReceitas.textContent = formatarBRL(totalR);
-  totalDespesas.textContent = formatarBRL(totalD);
-  saldoTotal.textContent = formatarBRL(saldo);
-  patrimonioAcumulado.textContent = formatarBRL(patrimonio);
-}
-
 /* ================= GRAFICO ================= */
 
-const financeChart = new Chart(financeChartCanvas.getContext("2d"), {
+const financeChart = new Chart(financeCanvas.getContext("2d"), {
   data: {
     labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
     datasets: [
@@ -816,6 +780,16 @@ function atualizarGrafico() {
   financeChart.update();
 }
 
+function atualizarResumo() {
+  const bucket = bucketAtual();
+  const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
+  const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
+
+  totalReceitas.textContent = formatarBRL(totalR);
+  totalDespesas.textContent = formatarBRL(totalD);
+  saldoTotal.textContent = formatarBRL(totalR - totalD);
+}
+
 function atualizarTudo() {
   atualizarResumo();
   atualizarGrafico();
@@ -824,6 +798,7 @@ function atualizarTudo() {
 </script>
 </body>
 </html>
+
 
 
 
