@@ -436,6 +436,7 @@
     </main>
   </div>
 <script type="module">
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import {
   getAuth,
@@ -448,6 +449,7 @@ import {
   signInWithRedirect,
   getRedirectResult
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+
 import {
   getFirestore,
   doc,
@@ -455,16 +457,8 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-/* =========================
-   ATENÇÃO: NÃO RODA EM file://
-========================= */
-if (location.protocol === "file:") {
-  alert("Abra esse projeto em http://localhost ou em um site https (ex: GitHub Pages). Firebase não funciona em file://");
-}
+/* ================= FIREBASE ================= */
 
-/* =========================
-   FIREBASE CONFIG
-========================= */
 const firebaseConfig = {
   apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
   authDomain: "financasmensaispaulods.firebaseapp.com",
@@ -477,23 +471,22 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const googleProvider = new GoogleAuthProvider();
+const provider = new GoogleAuthProvider();
 
-/* =========================
-   ELEMENTOS (IDs NÃO SÃO GLOBAIS EM MODULE!)
-========================= */
-const $ = (id) => document.getElementById(id);
+/* ================= ELEMENTOS ================= */
+
+const $ = id => document.getElementById(id);
 
 const loginScreen = $("loginScreen");
-const loginEmail  = $("loginEmail");
-const loginPass   = $("loginPass");
-const btnLogin    = $("btnLogin");
+const loginEmail = $("loginEmail");
+const loginPass = $("loginPass");
+const btnLogin = $("btnLogin");
 const btnRegister = $("btnRegister");
 const btnResetPass = $("btnResetPass");
 const btnGoogleLogin = $("btnGoogleLogin");
 
 const userPhoto = $("userPhoto");
-const userName  = $("userName");
+const userName = $("userName");
 const userEmail = $("userEmail");
 
 const mesSelect = $("mesSelect");
@@ -518,11 +511,10 @@ const listaDespesas = $("listaDespesas");
 const emptyReceitas = $("emptyReceitas");
 const emptyDespesas = $("emptyDespesas");
 
-const financeCanvas = $("financeChart");
+const financeChartCanvas = $("financeChart");
 
-/* =========================
-   ESTADO
-========================= */
+/* ================= ESTADO ================= */
+
 let currentUser = null;
 
 const mesesNomes = [
@@ -531,38 +523,34 @@ const mesesNomes = [
 ];
 
 const state = {
-  selected: { month: new Date().getMonth(), year: new Date().getFullYear() },
-  data: {} // { "2026-02": { receitas:[], despesas:[] }, ... }
+  selected: {
+    month: new Date().getMonth(),
+    year: new Date().getFullYear()
+  },
+  data: {}
 };
 
-/* =========================
-   UTIL
-========================= */
+/* ================= UTIL ================= */
+
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
 }
 
 function formatarBRL(valor) {
-  return Number(valor || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
 }
 
-function escapeHtml(text) {
-  return String(text)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+function keyMY(month, year) {
+  return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
 
-function keyMY(m, y) {
-  return `${y}-${String(m + 1).padStart(2, "0")}`;
-}
-
-function bucketBy(m, y) {
-  const k = keyMY(m, y);
-  if (!state.data[k]) state.data[k] = { receitas: [], despesas: [] };
-  return state.data[k];
+function bucketBy(month, year) {
+  const key = keyMY(month, year);
+  if (!state.data[key]) state.data[key] = { receitas: [], despesas: [] };
+  return state.data[key];
 }
 
 function bucketAtual() {
@@ -575,265 +563,189 @@ function somarMeses(month, year, add) {
   return { month: base.getMonth(), year: base.getFullYear() };
 }
 
-function textoPeriodoAtual() {
-  return `${mesesNomes[state.selected.month]}/${state.selected.year}`;
-}
+/* ================= SELECTS ================= */
 
-/* =========================
-   FIRESTORE SALVAR/CARREGAR
-========================= */
-async function salvarDadosUsuario() {
-  if (!currentUser) return;
-  await setDoc(doc(db, "finance_users", currentUser.uid), {
-    selected: state.selected,
-    data: state.data,
-    updatedAt: new Date().toISOString()
-  }, { merge: true });
-}
-
-async function carregarDadosUsuario() {
-  if (!currentUser) return;
-
-  const ref = doc(db, "finance_users", currentUser.uid);
-  const snap = await getDoc(ref);
-
-  if (snap.exists()) {
-    const payload = snap.data();
-    state.data = payload.data || {};
-    state.selected = payload.selected || state.selected;
-  } else {
-    state.data = {};
-  }
-}
-
-/* =========================
-   SELECT MÊS/ANO
-========================= */
 function initMonthYear() {
+
   mesSelect.innerHTML = "";
+  anoSelect.innerHTML = "";
+
   mesesNomes.forEach((nome, i) => {
     const opt = document.createElement("option");
-    opt.value = String(i);
+    opt.value = i;
     opt.textContent = nome;
     mesSelect.appendChild(opt);
   });
 
   const anoAtual = new Date().getFullYear();
-  anoSelect.innerHTML = "";
   for (let ano = anoAtual - 5; ano <= anoAtual + 5; ano++) {
     const opt = document.createElement("option");
-    opt.value = String(ano);
-    opt.textContent = String(ano);
+    opt.value = ano;
+    opt.textContent = ano;
     anoSelect.appendChild(opt);
   }
 
-  mesSelect.value = String(state.selected.month);
-  anoSelect.value = String(state.selected.year);
+  mesSelect.value = state.selected.month;
+  anoSelect.value = state.selected.year;
 
-  mesSelect.addEventListener("change", async () => {
+  mesSelect.onchange = async () => {
     state.selected.month = Number(mesSelect.value);
-    await salvarDadosUsuario();
+    await salvarDados();
     atualizarTudo();
-  });
+  };
 
-  anoSelect.addEventListener("change", async () => {
+  anoSelect.onchange = async () => {
     state.selected.year = Number(anoSelect.value);
-    await salvarDadosUsuario();
+    await salvarDados();
     atualizarTudo();
-  });
+  };
 }
 
-/* =========================
-   MENU (SESSÕES)
-========================= */
-document.querySelectorAll(".menu-item").forEach(item => {
-  item.addEventListener("click", () => {
-    document.querySelectorAll(".menu-item").forEach(i => i.classList.remove("active"));
-    item.classList.add("active");
+/* ================= FIRESTORE ================= */
 
-    const target = item.dataset.target;
-    document.querySelectorAll(".section").forEach(sec => sec.classList.remove("active"));
-    $(target).classList.add("active");
+async function salvarDados() {
+  if (!currentUser) return;
+  await setDoc(doc(db, "finance_users", currentUser.uid), {
+    selected: state.selected,
+    data: state.data
+  }, { merge: true });
+}
 
-    if (target === "graficos") {
-      setTimeout(() => {
-        financeChart.resize();
-        financeChart.update();
-      }, 100);
-    }
-  });
-});
-
-/* =========================
-   TOGGLE RECORRÊNCIA RECEITA
-========================= */
-tipoReceita.addEventListener("change", () => {
-  if (tipoReceita.value === "recorrente") {
-    mesesRecorrenciaReceita.classList.remove("hidden");
-  } else {
-    mesesRecorrenciaReceita.classList.add("hidden");
+async function carregarDados() {
+  const snap = await getDoc(doc(db, "finance_users", currentUser.uid));
+  if (snap.exists()) {
+    const payload = snap.data();
+    state.data = payload.data || {};
+    state.selected = payload.selected || state.selected;
   }
-});
+}
 
-/* =========================
-   LOGIN
-========================= */
-btnRegister.addEventListener("click", async () => {
-  const email = loginEmail.value.trim().toLowerCase();
-  const pass = loginPass.value.trim();
-  if (!email || !pass) return alert("Preencha e-mail e senha.");
+/* ================= AUTH ================= */
 
+btnRegister.onclick = async () => {
   try {
-    await createUserWithEmailAndPassword(auth, email, pass);
-    alert("Cadastro realizado! Você já pode entrar.");
+    await createUserWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
+    alert("Cadastro realizado!");
   } catch (err) {
-    console.error(err);
-    alert(traduzErroFirebase(err));
-  }
-});
-
-btnLogin.addEventListener("click", async () => {
-  const email = loginEmail.value.trim().toLowerCase();
-  const pass = loginPass.value.trim();
-  if (!email || !pass) return alert("Preencha e-mail e senha.");
-
-  try {
-    await signInWithEmailAndPassword(auth, email, pass);
-  } catch (err) {
-    console.error(err);
-    alert(traduzErroFirebase(err));
-  }
-});
-
-btnResetPass.addEventListener("click", async () => {
-  const email = loginEmail.value.trim().toLowerCase();
-  if (!email) return alert("Digite seu e-mail para redefinir.");
-
-  try {
-    await sendPasswordResetEmail(auth, email);
-    alert("E-mail de redefinição enviado.");
-  } catch (err) {
-    console.error(err);
-    alert(traduzErroFirebase(err));
-  }
-});
-
-/* ✅ Google login: Redirect (funciona mobile e pages) */
-btnGoogleLogin.addEventListener("click", async () => {
-  try {
-    await signInWithRedirect(auth, googleProvider);
-  } catch (err) {
-    console.error(err);
-    alert(traduzErroFirebase(err));
-  }
-});
-
-window.logout = async () => {
-  try {
-    await signOut(auth);
-  } catch (err) {
-    console.error(err);
-    alert("Erro ao sair.");
+    alert(err.message);
   }
 };
 
-/* =========================
-   AUTH STATE
-========================= */
-await getRedirectResult(auth).catch(() => {});
+btnLogin.onclick = async () => {
+  try {
+    await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
+btnGoogleLogin.onclick = async () => {
+  await signInWithRedirect(auth, provider);
+};
+
+btnResetPass.onclick = async () => {
+  await sendPasswordResetEmail(auth, loginEmail.value);
+  alert("E-mail enviado!");
+};
+
+window.logout = async () => {
+  await signOut(auth);
+  currentUser = null;
+  state.data = {};
+  loginScreen.style.display = "flex";
+};
+
+/* ================= AUTH STATE ================= */
+
+await getRedirectResult(auth).catch(()=>{});
 
 onAuthStateChanged(auth, async (user) => {
+
   if (user) {
     currentUser = user;
     loginScreen.style.display = "none";
 
-    userName.textContent = user.displayName || (user.email ? user.email.split("@")[0] : "Usuário");
-    userEmail.textContent = user.email || "—";
+    userName.textContent = user.displayName || user.email;
+    userEmail.textContent = user.email;
     userPhoto.src = user.photoURL || "https://i.pravatar.cc/150?img=12";
 
-    await carregarDadosUsuario();
+    await carregarDados();
+
     initMonthYear();
     atualizarTudo();
+
   } else {
+
     currentUser = null;
+    loginScreen.style.display = "flex";
 
     state.data = {};
-    state.selected = { month: new Date().getMonth(), year: new Date().getFullYear() };
-
-    userName.textContent = "Usuário";
-    userEmail.textContent = "Faça login";
-    userPhoto.src = "https://i.pravatar.cc/150?img=12";
+    state.selected = {
+      month: new Date().getMonth(),
+      year: new Date().getFullYear()
+    };
 
     initMonthYear();
-    loginScreen.style.display = "flex";
     atualizarTudo();
   }
+
 });
 
-/* =========================
-   AÇÕES: RECEITAS / DESPESAS
-========================= */
+/* ================= RECEITA ================= */
+
 window.addReceita = async () => {
+
   if (!currentUser) return alert("Faça login.");
 
   const desc = descReceita.value.trim();
   const valor = parseFloat(valorReceita.value);
   const tipo = tipoReceita.value;
-  const mesesRec = parseInt(mesesRecorrenciaReceita.value, 10);
+  const meses = parseInt(mesesRecorrenciaReceita.value);
 
-  if (!desc || isNaN(valor) || valor <= 0) return alert("Preencha descrição e valor válidos.");
+  if (!desc || isNaN(valor) || valor <= 0) return alert("Preencha corretamente.");
 
   if (tipo === "unica") {
-    bucketAtual().receitas.push({ id: uid(), desc, valor, tipo: "unica" });
+    bucketAtual().receitas.push({ id: uid(), desc, valor });
   } else {
-    if (isNaN(mesesRec) || mesesRec < 1) return alert("Meses de recorrência inválido.");
-
-    const grupoId = "rec-" + uid();
-    for (let i = 0; i < mesesRec; i++) {
+    for (let i = 0; i < meses; i++) {
       const destino = somarMeses(state.selected.month, state.selected.year, i);
       bucketBy(destino.month, destino.year).receitas.push({
         id: uid(),
-        grupoId,
         desc,
         valor,
-        tipo: "recorrente",
         recorrenciaAtual: i + 1,
-        recorrenciaTotal: mesesRec
+        recorrenciaTotal: meses
       });
     }
   }
 
   descReceita.value = "";
   valorReceita.value = "";
-  tipoReceita.value = "unica";
-  mesesRecorrenciaReceita.value = "12";
-  mesesRecorrenciaReceita.classList.add("hidden");
 
-  await salvarDadosUsuario();
+  await salvarDados();
   atualizarTudo();
 };
 
+/* ================= DESPESA ================= */
+
 window.addDespesa = async () => {
+
   if (!currentUser) return alert("Faça login.");
 
   const desc = descDespesa.value.trim();
   const valor = parseFloat(valorDespesa.value);
-  const parcelas = parseInt(parcelasDespesa.value, 10);
+  const parcelas = parseInt(parcelasDespesa.value);
 
-  if (!desc || isNaN(valor) || valor <= 0) return alert("Preencha descrição e valor válidos.");
-  if (isNaN(parcelas) || parcelas < 1) return alert("Parcelas inválidas.");
-
-  const grupoId = "desp-" + uid();
+  if (!desc || isNaN(valor) || valor <= 0) return alert("Preencha corretamente.");
 
   for (let i = 0; i < parcelas; i++) {
     const destino = somarMeses(state.selected.month, state.selected.year, i);
     bucketBy(destino.month, destino.year).despesas.push({
       id: uid(),
-      grupoId,
       desc,
       valor,
-      parcelasTotal: parcelas,
-      parcelaAtual: i + 1
+      parcelaAtual: i + 1,
+      parcelasTotal: parcelas
     });
   }
 
@@ -841,199 +753,77 @@ window.addDespesa = async () => {
   valorDespesa.value = "";
   parcelasDespesa.value = "1";
 
-  await salvarDadosUsuario();
+  await salvarDados();
   atualizarTudo();
 };
 
-window.excluirReceita = async (id) => {
-  const b = bucketAtual();
-  b.receitas = b.receitas.filter(x => x.id !== id);
-  await salvarDadosUsuario();
-  atualizarTudo();
-};
-
-window.excluirDespesa = async (id) => {
-  const b = bucketAtual();
-  b.despesas = b.despesas.filter(x => x.id !== id);
-  await salvarDadosUsuario();
-  atualizarTudo();
-};
-
-/* =========================
-   RENDER
-========================= */
-function renderListas() {
-  const b = bucketAtual();
-
-  listaReceitas.innerHTML = b.receitas.map(item => {
-    let info = textoPeriodoAtual();
-    if (item.tipo === "recorrente") info += ` • Recorrência ${item.recorrenciaAtual}/${item.recorrenciaTotal}`;
-    return `
-      <li class="list-item">
-        <div class="item-left">
-          <strong>${escapeHtml(item.desc)}</strong>
-          <span>${info}</span>
-        </div>
-        <div class="item-actions">
-          <div class="item-value receita">${formatarBRL(item.valor)}</div>
-          <button class="btn-delete" onclick="excluirReceita('${item.id}')">Excluir</button>
-        </div>
-      </li>
-    `;
-  }).join("");
-
-  listaDespesas.innerHTML = b.despesas.map(item => `
-    <li class="list-item">
-      <div class="item-left">
-        <strong>${escapeHtml(item.desc)}</strong>
-        <span>${textoPeriodoAtual()} • Parcela ${item.parcelaAtual}/${item.parcelasTotal}</span>
-      </div>
-      <div class="item-actions">
-        <div class="item-value despesa">${formatarBRL(item.valor)}</div>
-        <button class="btn-delete" onclick="excluirDespesa('${item.id}')">Excluir</button>
-      </div>
-    </li>
-  `).join("");
-
-  emptyReceitas.style.display = b.receitas.length ? "none" : "block";
-  emptyDespesas.style.display = b.despesas.length ? "none" : "block";
-}
+/* ================= RENDER ================= */
 
 function atualizarResumo() {
-  const b = bucketAtual();
 
-  const totalR = b.receitas.reduce((acc, it) => acc + Number(it.valor || 0), 0);
-  const totalD = b.despesas.reduce((acc, it) => acc + Number(it.valor || 0), 0);
+  const bucket = bucketAtual();
+
+  const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
+  const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
   const saldo = totalR - totalD;
 
-  // patrimônio acumulado do ano até o mês selecionado
   let patrimonio = 0;
-  for (let mes = 0; mes <= state.selected.month; mes++) {
-    const bb = bucketBy(mes, state.selected.year);
-    const r = bb.receitas.reduce((a, it) => a + Number(it.valor || 0), 0);
-    const d = bb.despesas.reduce((a, it) => a + Number(it.valor || 0), 0);
-    patrimonio += (r - d);
+  for (let m = 0; m <= state.selected.month; m++) {
+    const b = bucketBy(m, state.selected.year);
+    patrimonio += b.receitas.reduce((a,b)=>a+b.valor,0) -
+                  b.despesas.reduce((a,b)=>a+b.valor,0);
   }
 
   totalReceitas.textContent = formatarBRL(totalR);
   totalDespesas.textContent = formatarBRL(totalD);
-
   saldoTotal.textContent = formatarBRL(saldo);
-  saldoTotal.classList.remove("positivo","negativo");
-  saldoTotal.classList.add(saldo >= 0 ? "positivo" : "negativo");
-
   patrimonioAcumulado.textContent = formatarBRL(patrimonio);
-  patrimonioAcumulado.classList.remove("positivo","negativo");
-  patrimonioAcumulado.classList.add(patrimonio >= 0 ? "positivo" : "negativo");
 }
 
-/* =========================
-   GRÁFICO (ANUAL + PATRIMÔNIO)
-========================= */
-const financeChart = new Chart(financeCanvas.getContext("2d"), {
+/* ================= GRAFICO ================= */
+
+const financeChart = new Chart(financeChartCanvas.getContext("2d"), {
   data: {
     labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
     datasets: [
-      { type:"bar", label:"Receitas", data: Array(12).fill(0), borderWidth: 1 },
-      { type:"bar", label:"Despesas", data: Array(12).fill(0), borderWidth: 1 },
-      { type:"line", label:"Saldo", data: Array(12).fill(0), tension: 0.3, borderWidth: 3, pointRadius: 4 },
-      { type:"line", label:"Patrimônio", data: Array(12).fill(0), tension: 0.25, borderWidth: 3, pointRadius: 4 }
+      { type:"bar", label:"Receitas", data:Array(12).fill(0) },
+      { type:"bar", label:"Despesas", data:Array(12).fill(0) },
+      { type:"line", label:"Saldo", data:Array(12).fill(0) }
     ]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: "index", intersect: false },
-    plugins: {
-      legend: { labels: { color: "#fff" } },
-      tooltip: {
-        callbacks: {
-          label: (ctx) => ` ${ctx.dataset.label}: ${formatarBRL(ctx.raw)}`
-        }
-      }
-    },
-    scales: {
-      x: { ticks: { color: "#cbd5e1" }, grid: { color: "rgba(255,255,255,0.08)" } },
-      y: {
-        ticks: {
-          color: "#cbd5e1",
-          callback: (v) => "R$ " + Number(v).toLocaleString("pt-BR")
-        },
-        grid: { color: "rgba(255,255,255,0.08)" }
-      }
-    }
   }
 });
 
 function atualizarGrafico() {
-  const receitasAno = [];
-  const despesasAno = [];
-  const saldoAno = [];
-  const patrimonioAno = [];
 
-  let patrimonio = 0;
+  const receitas = [];
+  const despesas = [];
+  const saldo = [];
 
-  for (let mes = 0; mes < 12; mes++) {
-    const b = bucketBy(mes, state.selected.year);
-    const r = b.receitas.reduce((a, it) => a + Number(it.valor || 0), 0);
-    const d = b.despesas.reduce((a, it) => a + Number(it.valor || 0), 0);
-    const s = r - d;
+  for (let m = 0; m < 12; m++) {
+    const b = bucketBy(m, state.selected.year);
+    const r = b.receitas.reduce((a,b)=>a+b.valor,0);
+    const d = b.despesas.reduce((a,b)=>a+b.valor,0);
 
-    patrimonio += s;
-
-    receitasAno.push(r);
-    despesasAno.push(d);
-    saldoAno.push(s);
-    patrimonioAno.push(patrimonio);
+    receitas.push(r);
+    despesas.push(d);
+    saldo.push(r - d);
   }
 
-  financeChart.data.datasets[0].label = `Receitas (${state.selected.year})`;
-  financeChart.data.datasets[1].label = `Despesas (${state.selected.year})`;
-  financeChart.data.datasets[2].label = `Saldo (${state.selected.year})`;
-  financeChart.data.datasets[3].label = `Patrimônio (${state.selected.year})`;
-
-  financeChart.data.datasets[0].data = receitasAno;
-  financeChart.data.datasets[1].data = despesasAno;
-  financeChart.data.datasets[2].data = saldoAno;
-  financeChart.data.datasets[3].data = patrimonioAno;
+  financeChart.data.datasets[0].data = receitas;
+  financeChart.data.datasets[1].data = despesas;
+  financeChart.data.datasets[2].data = saldo;
 
   financeChart.update();
 }
 
 function atualizarTudo() {
-  renderListas();
   atualizarResumo();
   atualizarGrafico();
 }
 
-/* =========================
-   ERROS FIREBASE PT-BR
-========================= */
-function traduzErroFirebase(err) {
-  const code = err?.code || "";
-  const mapa = {
-    "auth/email-already-in-use": "Este e-mail já está em uso.",
-    "auth/invalid-email": "E-mail inválido.",
-    "auth/weak-password": "Senha muito fraca (mínimo 6 caracteres).",
-    "auth/user-not-found": "Usuário não encontrado.",
-    "auth/wrong-password": "Senha incorreta.",
-    "auth/invalid-credential": "Credenciais inválidas.",
-    "auth/popup-closed-by-user": "Login com Google cancelado.",
-    "auth/network-request-failed": "Falha de conexão. Verifique sua internet.",
-    "auth/too-many-requests": "Muitas tentativas. Tente mais tarde.",
-    "auth/operation-not-allowed": "Método de login não habilitado no Firebase."
-  };
-  return mapa[code] || (err?.message || "Ocorreu um erro.");
-}
-
-/* =========================
-   INICIALIZAÇÃO
-========================= */
-initMonthYear();
-atualizarTudo();
-
 </script>
 </body>
 </html>
+
 
 
