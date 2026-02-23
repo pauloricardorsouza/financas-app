@@ -467,7 +467,7 @@
       </section>
     </main>
   </div>
-  <script type="module">
+<script type="module">
 
 /* ================= FIREBASE IMPORTS ================= */
 
@@ -480,7 +480,8 @@ import {
   onAuthStateChanged,
   signOut,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithRedirect,
+  getRedirectResult
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
 import {
@@ -564,9 +565,10 @@ btnLogin.onclick = async () => {
   }
 };
 
+/* 🔥 LOGIN GOOGLE COM REDIRECT (corrigido) */
 btnGoogleLogin.onclick = async () => {
   try {
-    await signInWithPopup(auth, provider);
+    await signInWithRedirect(auth, provider);
   } catch (err) {
     alert(err.message);
   }
@@ -628,13 +630,15 @@ onAuthStateChanged(auth, async (user) => {
     userEmail.textContent = user.email;
 
     atualizarTudo();
-
   } else {
     currentUser = null;
     state.data = {};
     loginScreen.style.display = "flex";
   }
 });
+
+/* 🔥 Necessário para login redirect funcionar */
+await getRedirectResult(auth).catch(()=>{});
 
 /* ================= RECEITAS ================= */
 
@@ -717,8 +721,6 @@ function atualizarResumo() {
   atualizarPatrimonio();
 }
 
-/* ================= PATRIMÔNIO ================= */
-
 function atualizarPatrimonio() {
   let acumulado = 0;
 
@@ -765,6 +767,7 @@ function atualizarGrafico() {
 </script>
 </body>
 </html>
+
 
 
 
