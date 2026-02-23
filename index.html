@@ -467,294 +467,675 @@
       </section>
     </main>
   </div>
-<script type="module">
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  onAuthStateChanged,
-  signOut,
-  GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult
-} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      sendEmailVerification,
+      sendPasswordResetEmail,
+      onAuthStateChanged,
+      signOut,
+      GoogleAuthProvider,
+      signInWithPopup
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  getDoc
-} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      getDoc,
+      enableIndexedDbPersistence
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-/* ================= FIREBASE ================= */
+    /* =========================
+       FIREBASE CONFIG
+    ========================== */
+    const firebaseConfig = {
+      apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
+      authDomain: "financasmensaispaulods.firebaseapp.com",
+      projectId: "financasmensaispaulods",
+      storageBucket: "financasmensaispaulods.firebasestorage.app",
+      messagingSenderId: "168499253940",
+      appId: "1:168499253940:web:8d14795ad8195858283de1"
+    };
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
-  authDomain: "financasmensaispaulods.firebaseapp.com",
-  projectId: "financasmensaispaulods",
-  storageBucket: "financasmensaispaulods.appspot.com",
-  messagingSenderId: "168499253940",
-  appId: "1:168499253940:web:8d14795ad8195858283de1"
-};
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const googleProvider = new GoogleAuthProvider();
+    enableIndexedDbPersistence(db).catch(() => {});
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
+    /* =========================
+       ESTADO DO APP
+    ========================== */
+    let currentUser = null;
 
-/* ================= ESTADO ================= */
+    const state = {
+      selected: {
+        month: new Date().getMonth(),
+        year: new Date().getFullYear()
+      },
+      data: {}
+    };
 
-let currentUser = null;
+    const mesesNomes = [
+      "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+      "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+    ];
 
-const state = {
-  selected: {
-    month: new Date().getMonth(),
-    year: new Date().getFullYear()
-  },
-  data: {}
-};
+    function uid() {
+      return `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    }
 
-/* ================= UTIL ================= */
+    function formatarBRL(valor) {
+      return Number(valor || 0).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+      });
+    }
 
-function uid() {
-  return Date.now() + Math.random().toString(36).slice(2);
-}
+    function keyMY(month, year) {
+      return `${year}-${String(month + 1).padStart(2, "0")}`;
+    }
 
-function formatarBRL(valor) {
-  return Number(valor || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
-}
+    function bucketBy(month, year) {
+      const key = keyMY(month, year);
+      if (!state.data[key]) state.data[key] = { receitas: [], despesas: [] };
+      return state.data[key];
+    }
 
-function keyMY(m, y) {
-  return `${y}-${String(m + 1).padStart(2, "0")}`;
-}
+    function bucketAtual() {
+      return bucketBy(state.selected.month, state.selected.year);
+    }
 
-function bucketBy(m, y) {
-  const k = keyMY(m, y);
-  if (!state.data[k]) state.data[k] = { receitas: [], despesas: [] };
-  return state.data[k];
-}
+    function textoPeriodo(month, year) {
+      return `${mesesNomes[month]}/${year}`;
+    }
 
-function somarMeses(m, y, add) {
-  const d = new Date(y, m, 1);
-  d.setMonth(d.getMonth() + add);
-  return { month: d.getMonth(), year: d.getFullYear() };
-}
+    function textoPeriodoAtual() {
+      return textoPeriodo(state.selected.month, state.selected.year);
+    }
 
-/* ================= FIRESTORE ================= */
+    function somarMeses(month, year, add) {
+      const base = new Date(year, month, 1);
+      base.setMonth(base.getMonth() + add);
+      return { month: base.getMonth(), year: base.getFullYear() };
+    }
 
-async function salvarDados() {
-  if (!currentUser) return;
-  await setDoc(doc(db, "finance_users", currentUser.uid), {
-    data: state.data,
-    selected: state.selected
-  }, { merge: true });
-}
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
 
-async function carregarDados() {
-  const snap = await getDoc(doc(db, "finance_users", currentUser.uid));
-  if (snap.exists()) {
-    const payload = snap.data();
-    state.data = payload.data || {};
-    state.selected = payload.selected || state.selected;
-  }
-}
+    /* =========================
+       FIRESTORE (SALVAR/CARREGAR)
+    ========================== */
+    async function salvarDadosUsuario() {
+      if (!currentUser) return;
 
-/* ================= AUTH ================= */
+      try {
+        const ref = doc(db, "finance_users", currentUser.uid);
+        await setDoc(ref, {
+          profile: {
+            nome: currentUser.displayName || (currentUser.email ? currentUser.email.split("@")[0] : "Usuário"),
+            email: currentUser.email || "",
+            foto: currentUser.photoURL || ""
+          },
+          selected: state.selected,
+          data: state.data,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (err) {
+        console.error("Erro ao salvar no Firestore:", err);
+      }
+    }
 
-btnRegister.onclick = async () => {
-  try {
-    await createUserWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
-    alert("Cadastro realizado!");
-  } catch (err) {
-    alert(err.message);
-  }
-};
+    async function carregarDadosUsuario() {
+      if (!currentUser) return;
 
-btnLogin.onclick = async () => {
-  try {
-    await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
-  } catch (err) {
-    alert(err.message);
-  }
-};
+      try {
+        const ref = doc(db, "finance_users", currentUser.uid);
+        const snap = await getDoc(ref);
 
-btnGoogleLogin.onclick = async () => {
-  await signInWithRedirect(auth, provider);
-};
+        if (snap.exists()) {
+          const payload = snap.data();
+          state.data = payload.data || {};
+          state.selected = payload.selected || state.selected;
+        } else {
+          state.data = {};
+          state.selected = {
+            month: new Date().getMonth(),
+            year: new Date().getFullYear()
+          };
+        }
 
-btnResetPass.onclick = async () => {
-  await sendPasswordResetEmail(auth, loginEmail.value);
-  alert("E-mail enviado!");
-};
+        mesSelect.value = String(state.selected.month);
+        anoSelect.value = String(state.selected.year);
+      } catch (err) {
+        console.error("Erro ao carregar do Firestore:", err);
+        state.data = {};
+      }
+    }
 
-window.logout = async () => {
-  await signOut(auth);
-};
+    function carregarInfoUsuario() {
+      if (!currentUser) return;
 
-/* ================= AUTH STATE ================= */
+      document.getElementById("userName").textContent =
+        currentUser.displayName || (currentUser.email ? currentUser.email.split("@")[0] : "Usuário");
 
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    currentUser = user;
-    loginScreen.style.display = "none";
+      document.getElementById("userEmail").textContent = currentUser.email || "";
 
-    userName.textContent = user.displayName || user.email;
-    userEmail.textContent = user.email;
-    userPhoto.src = user.photoURL || "https://i.pravatar.cc/150?img=12";
+      document.getElementById("userPhoto").src =
+        currentUser.photoURL || "https://i.pravatar.cc/150?img=12";
+    }
 
-    await carregarDados();
-    atualizarTudo();
-  } else {
-    currentUser = null;
-    loginScreen.style.display = "flex";
-    state.data = {};
-  }
-});
+    /* =========================
+       ELEMENTOS LOGIN
+    ========================== */
+    const btnLogin = document.getElementById("btnLogin");
+    const btnRegister = document.getElementById("btnRegister");
+    const btnGoogleLogin = document.getElementById("btnGoogleLogin");
+    const btnResetPass = document.getElementById("btnResetPass");
+    const loginEmail = document.getElementById("loginEmail");
+    const loginPass = document.getElementById("loginPass");
 
-await getRedirectResult(auth).catch(()=>{});
+    btnRegister.addEventListener("click", async () => {
+      const email = loginEmail.value.trim().toLowerCase();
+      const pass = loginPass.value.trim();
 
-/* ================= RECEITA ================= */
+      if (!email || !pass) return alert("Preencha e-mail e senha.");
 
-window.addReceita = async () => {
-  const desc = descReceita.value.trim();
-  const valor = parseFloat(valorReceita.value);
-  const tipo = tipoReceita.value;
-  const meses = parseInt(mesesRecorrenciaReceita.value);
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, pass);
 
-  if (!desc || !valor) return alert("Preencha os campos.");
+        try {
+          await sendEmailVerification(cred.user);
+        } catch (e) {
+          console.warn("Falha ao enviar verificação:", e);
+        }
 
-  if (tipo === "unica") {
-    bucketBy(state.selected.month, state.selected.year)
-      .receitas.push({ id: uid(), desc, valor });
-  } else {
-    for (let i = 0; i < meses; i++) {
-      const destino = somarMeses(state.selected.month, state.selected.year, i);
-      bucketBy(destino.month, destino.year)
-        .receitas.push({
+        alert("Cadastro realizado com sucesso! Você já pode entrar.");
+      } catch (err) {
+        console.error(err);
+        alert(traduzErroFirebase(err));
+      }
+    });
+
+    btnLogin.addEventListener("click", async () => {
+      const email = loginEmail.value.trim().toLowerCase();
+      const pass = loginPass.value.trim();
+
+      if (!email || !pass) return alert("Preencha e-mail e senha.");
+
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } catch (err) {
+        console.error(err);
+        alert(traduzErroFirebase(err));
+      }
+    });
+
+    btnGoogleLogin.addEventListener("click", async () => {
+      try {
+        await signInWithPopup(auth, googleProvider);
+      } catch (err) {
+        console.error(err);
+        alert(traduzErroFirebase(err));
+      }
+    });
+
+    btnResetPass.addEventListener("click", async () => {
+      const email = loginEmail.value.trim().toLowerCase();
+      if (!email) return alert("Digite seu e-mail para redefinir a senha.");
+
+      try {
+        await sendPasswordResetEmail(auth, email);
+        alert("E-mail de redefinição enviado.");
+      } catch (err) {
+        console.error(err);
+        alert(traduzErroFirebase(err));
+      }
+    });
+
+    [loginEmail, loginPass].forEach(el => {
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") btnLogin.click();
+      });
+    });
+
+    async function logout() {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao sair.");
+      }
+    }
+
+    /* =========================
+       TOGGLE RECORRÊNCIA RECEITA
+    ========================== */
+    const tipoReceitaEl = document.getElementById("tipoReceita");
+    const mesesRecorrenciaEl = document.getElementById("mesesRecorrenciaReceita");
+
+    tipoReceitaEl.addEventListener("change", () => {
+      if (tipoReceitaEl.value === "recorrente") {
+        mesesRecorrenciaEl.classList.remove("hidden");
+      } else {
+        mesesRecorrenciaEl.classList.add("hidden");
+      }
+    });
+
+    /* =========================
+       SELECTS MÊS/ANO
+    ========================== */
+    const mesSelect = document.getElementById("mesSelect");
+    const anoSelect = document.getElementById("anoSelect");
+
+    mesesNomes.forEach((nome, i) => {
+      const opt = document.createElement("option");
+      opt.value = i;
+      opt.textContent = nome;
+      mesSelect.appendChild(opt);
+    });
+
+    const anoAtual = new Date().getFullYear();
+    for (let ano = anoAtual - 5; ano <= anoAtual + 5; ano++) {
+      const opt = document.createElement("option");
+      opt.value = ano;
+      opt.textContent = ano;
+      anoSelect.appendChild(opt);
+    }
+
+    mesSelect.addEventListener("change", async () => {
+      state.selected.month = Number(mesSelect.value);
+      await salvarDadosUsuario();
+      atualizarTudo();
+      atualizarGraficoComResize();
+    });
+
+    anoSelect.addEventListener("change", async () => {
+      state.selected.year = Number(anoSelect.value);
+      await salvarDadosUsuario();
+      atualizarTudo();
+      atualizarGraficoComResize();
+    });
+
+    /* =========================
+       MENU
+    ========================== */
+    document.querySelectorAll(".menu-item").forEach(item => {
+      item.addEventListener("click", () => {
+        document.querySelectorAll(".menu-item").forEach(i => i.classList.remove("active"));
+        item.classList.add("active");
+
+        const target = item.dataset.target;
+        document.querySelectorAll(".section").forEach(sec => sec.classList.remove("active"));
+        document.getElementById(target).classList.add("active");
+
+        if (target === "graficos") atualizarGraficoComResize();
+      });
+    });
+
+    /* =========================
+       GRÁFICO
+    ========================== */
+    const ctx = document.getElementById("financeChart").getContext("2d");
+    const financeChart = new Chart(ctx, {
+      data: {
+        labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
+        datasets: [
+          { type: "bar", label: "Receitas", data: Array(12).fill(0), borderWidth: 1 },
+          { type: "bar", label: "Despesas", data: Array(12).fill(0), borderWidth: 1 },
+          { type: "line", label: "Saldo", data: Array(12).fill(0), tension: 0.3, borderWidth: 3, pointRadius: 4 },
+          { type: "line", label: "Patrimônio Acumulado", data: Array(12).fill(0), tension: 0.25, borderWidth: 3, pointRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: "#fff" } },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return " " + context.dataset.label + ": " + formatarBRL(context.raw);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: "#cbd5e1" },
+            grid: { color: "rgba(255,255,255,0.08)" }
+          },
+          y: {
+            ticks: {
+              color: "#cbd5e1",
+              callback: (value) => "R$ " + Number(value).toLocaleString("pt-BR")
+            },
+            grid: { color: "rgba(255,255,255,0.08)" }
+          }
+        }
+      }
+    });
+
+    function atualizarGraficoComResize() {
+      setTimeout(() => {
+        financeChart.resize();
+        financeChart.update();
+      }, 80);
+    }
+
+    /* =========================
+       AÇÕES RECEITAS / DESPESAS
+    ========================== */
+    async function addReceita() {
+      if (!currentUser) return alert("Faça login para cadastrar receitas.");
+
+      const descInput = document.getElementById("descReceita");
+      const valorInput = document.getElementById("valorReceita");
+      const tipoReceita = document.getElementById("tipoReceita").value;
+      const mesesRec = parseInt(document.getElementById("mesesRecorrenciaReceita").value, 10);
+
+      const desc = descInput.value.trim();
+      const valor = parseFloat(valorInput.value);
+
+      if (!desc || isNaN(valor) || valor <= 0) {
+        return alert("Preencha a descrição e um valor válido para a receita.");
+      }
+
+      if (tipoReceita === "unica") {
+        bucketAtual().receitas.push({
           id: uid(),
           desc,
           valor,
-          recorrenciaAtual: i + 1,
-          recorrenciaTotal: meses
+          tipo: "unica"
         });
+      } else {
+        if (isNaN(mesesRec) || mesesRec < 1) {
+          return alert("Informe uma quantidade de meses válida para a recorrência.");
+        }
+
+        const grupoId = "rec-" + uid();
+
+        for (let i = 0; i < mesesRec; i++) {
+          const destino = somarMeses(state.selected.month, state.selected.year, i);
+          bucketBy(destino.month, destino.year).receitas.push({
+            id: uid(),
+            grupoId,
+            desc,
+            valor,
+            tipo: "recorrente",
+            recorrenciaTotal: mesesRec,
+            recorrenciaAtual: i + 1
+          });
+        }
+      }
+
+      descInput.value = "";
+      valorInput.value = "";
+      tipoReceitaEl.value = "unica";
+      mesesRecorrenciaEl.value = "12";
+      mesesRecorrenciaEl.classList.add("hidden");
+
+      await salvarDadosUsuario();
+      atualizarTudo();
     }
-  }
 
-  descReceita.value = "";
-  valorReceita.value = "";
-  mesesRecorrenciaReceita.value = "12";
+    async function addDespesa() {
+      if (!currentUser) return alert("Faça login para cadastrar despesas.");
 
-  await salvarDados();
-  atualizarTudo();
-};
+      const descInput = document.getElementById("descDespesa");
+      const valorInput = document.getElementById("valorDespesa");
+      const parcelasInput = document.getElementById("parcelasDespesa");
 
-/* ================= DESPESA ================= */
+      const desc = descInput.value.trim();
+      const valor = parseFloat(valorInput.value);
+      const parcelas = parseInt(parcelasInput.value, 10);
 
-window.addDespesa = async () => {
-  const desc = descDespesa.value.trim();
-  const valor = parseFloat(valorDespesa.value);
-  const parcelas = parseInt(parcelasDespesa.value);
+      if (!desc || isNaN(valor) || valor <= 0) {
+        return alert("Preencha a descrição e um valor válido para a despesa.");
+      }
+      if (isNaN(parcelas) || parcelas < 1) {
+        return alert("Informe uma quantidade de parcelas válida.");
+      }
 
-  if (!desc || !valor || !parcelas) return alert("Preencha os campos.");
+      const grupoId = "desp-" + uid();
 
-  for (let i = 0; i < parcelas; i++) {
-    const destino = somarMeses(state.selected.month, state.selected.year, i);
-    bucketBy(destino.month, destino.year)
-      .despesas.push({
-        id: uid(),
-        desc,
-        valor,
-        parcelaAtual: i + 1,
-        parcelasTotal: parcelas
-      });
-  }
+      for (let i = 0; i < parcelas; i++) {
+        const destino = somarMeses(state.selected.month, state.selected.year, i);
+        bucketBy(destino.month, destino.year).despesas.push({
+          id: uid(),
+          grupoId,
+          desc,
+          valor,
+          parcelasTotal: parcelas,
+          parcelaAtual: i + 1
+        });
+      }
 
-  descDespesa.value = "";
-  valorDespesa.value = "";
-  parcelasDespesa.value = "1";
+      descInput.value = "";
+      valorInput.value = "";
+      parcelasInput.value = "1";
 
-  await salvarDados();
-  atualizarTudo();
-};
+      await salvarDadosUsuario();
+      atualizarTudo();
+    }
 
-/* ================= EXCLUSÃO ================= */
+    async function excluirReceita(id) {
+      const bucket = bucketAtual();
+      bucket.receitas = bucket.receitas.filter(item => item.id !== id);
+      await salvarDadosUsuario();
+      atualizarTudo();
+    }
 
-window.excluirReceita = async (id) => {
-  const bucket = bucketBy(state.selected.month, state.selected.year);
-  bucket.receitas = bucket.receitas.filter(r => r.id !== id);
-  await salvarDados();
-  atualizarTudo();
-};
+    async function excluirDespesa(id) {
+      const bucket = bucketAtual();
+      bucket.despesas = bucket.despesas.filter(item => item.id !== id);
+      await salvarDadosUsuario();
+      atualizarTudo();
+    }
 
-window.excluirDespesa = async (id) => {
-  const bucket = bucketBy(state.selected.month, state.selected.year);
-  bucket.despesas = bucket.despesas.filter(d => d.id !== id);
-  await salvarDados();
-  atualizarTudo();
-};
+    // Expor funções para onclick no HTML
+    window.addReceita = addReceita;
+    window.addDespesa = addDespesa;
+    window.excluirReceita = excluirReceita;
+    window.excluirDespesa = excluirDespesa;
+    window.logout = logout;
 
-/* ================= RENDER ================= */
+    /* =========================
+       RENDER
+    ========================== */
+    function atualizarTudo() {
+      renderListas();
+      atualizarResumo();
+      atualizarGrafico();
+    }
 
-function atualizarTudo() {
-  atualizarResumo();
-  atualizarGrafico();
-}
+    function renderListas() {
+      const bucket = bucketAtual();
 
-function atualizarResumo() {
-  const bucket = bucketBy(state.selected.month, state.selected.year);
-  const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
-  const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
+      const listaReceitas = document.getElementById("listaReceitas");
+      const listaDespesas = document.getElementById("listaDespesas");
+      const emptyReceitas = document.getElementById("emptyReceitas");
+      const emptyDespesas = document.getElementById("emptyDespesas");
 
-  totalReceitas.textContent = formatarBRL(totalR);
-  totalDespesas.textContent = formatarBRL(totalD);
-  saldoTotal.textContent = formatarBRL(totalR - totalD);
-}
+      listaReceitas.innerHTML = bucket.receitas.map(item => {
+        let info = textoPeriodoAtual();
+        if (item.tipo === "recorrente") {
+          info += ` • Recorrência ${item.recorrenciaAtual}/${item.recorrenciaTotal}`;
+        }
 
-/* ================= GRÁFICO ================= */
+        return `
+          <li class="list-item">
+            <div class="item-left">
+              <strong>${escapeHtml(item.desc)}</strong>
+              <span>${info}</span>
+            </div>
+            <div class="item-actions">
+              <div class="item-value receita">${formatarBRL(item.valor)}</div>
+              <button class="btn-delete" onclick="excluirReceita('${item.id}')">Excluir</button>
+            </div>
+          </li>
+        `;
+      }).join("");
 
-const chart = new Chart(financeChart,{
-  type:"bar",
-  data:{
-    labels:["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
-    datasets:[
-      {label:"Receitas",data:Array(12).fill(0)},
-      {label:"Despesas",data:Array(12).fill(0)},
-      {label:"Saldo",type:"line",data:Array(12).fill(0)}
-    ]
-  }
-});
+      listaDespesas.innerHTML = bucket.despesas.map(item => `
+        <li class="list-item">
+          <div class="item-left">
+            <strong>${escapeHtml(item.desc)}</strong>
+            <span>${textoPeriodoAtual()} • Parcela ${item.parcelaAtual}/${item.parcelasTotal}</span>
+          </div>
+          <div class="item-actions">
+            <div class="item-value despesa">${formatarBRL(item.valor)}</div>
+            <button class="btn-delete" onclick="excluirDespesa('${item.id}')">Excluir</button>
+          </div>
+        </li>
+      `).join("");
 
-function atualizarGrafico(){
-  const receitas=[];
-  const despesas=[];
-  const saldo=[];
-  for(let m=0;m<12;m++){
-    const b=bucketBy(m,state.selected.year);
-    const r=b.receitas.reduce((a,b)=>a+b.valor,0);
-    const d=b.despesas.reduce((a,b)=>a+b.valor,0);
-    receitas.push(r);
-    despesas.push(d);
-    saldo.push(r-d);
-  }
-  chart.data.datasets[0].data=receitas;
-  chart.data.datasets[1].data=despesas;
-  chart.data.datasets[2].data=saldo;
-  chart.update();
-}
+      emptyReceitas.style.display = bucket.receitas.length ? "none" : "block";
+      emptyDespesas.style.display = bucket.despesas.length ? "none" : "block";
+    }
 
-</script>
+    function atualizarResumo() {
+      const bucket = bucketAtual();
+
+      const totalR = bucket.receitas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+      const totalD = bucket.despesas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+      const saldo = totalR - totalD;
+
+      let patrimonio = 0;
+      for (let mes = 0; mes <= state.selected.month; mes++) {
+        const b = bucketBy(mes, state.selected.year);
+        const r = b.receitas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+        const d = b.despesas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+        patrimonio += (r - d);
+      }
+
+      document.getElementById("totalReceitas").textContent = formatarBRL(totalR);
+      document.getElementById("totalDespesas").textContent = formatarBRL(totalD);
+
+      const saldoEl = document.getElementById("saldoTotal");
+      saldoEl.textContent = formatarBRL(saldo);
+      saldoEl.classList.remove("positivo", "negativo");
+      saldoEl.classList.add(saldo >= 0 ? "positivo" : "negativo");
+
+      const patrimonioEl = document.getElementById("patrimonioAcumulado");
+      patrimonioEl.textContent = formatarBRL(patrimonio);
+      patrimonioEl.classList.remove("positivo", "negativo");
+      patrimonioEl.classList.add(patrimonio >= 0 ? "positivo" : "negativo");
+    }
+
+    function atualizarGrafico() {
+      const receitasAno = [];
+      const despesasAno = [];
+      const saldoAno = [];
+      const patrimonioAcumuladoAno = [];
+
+      let patrimonio = 0;
+
+      for (let mes = 0; mes < 12; mes++) {
+        const bucket = bucketBy(mes, state.selected.year);
+
+        const totalR = bucket.receitas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+        const totalD = bucket.despesas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
+        const saldo = totalR - totalD;
+
+        patrimonio += saldo;
+
+        receitasAno.push(totalR);
+        despesasAno.push(totalD);
+        saldoAno.push(saldo);
+        patrimonioAcumuladoAno.push(patrimonio);
+      }
+
+      financeChart.data.datasets[0].label = `Receitas (${state.selected.year})`;
+      financeChart.data.datasets[1].label = `Despesas (${state.selected.year})`;
+      financeChart.data.datasets[2].label = `Saldo (${state.selected.year})`;
+      financeChart.data.datasets[3].label = `Patrimônio (${state.selected.year})`;
+
+      financeChart.data.datasets[0].data = receitasAno;
+      financeChart.data.datasets[1].data = despesasAno;
+      financeChart.data.datasets[2].data = saldoAno;
+      financeChart.data.datasets[3].data = patrimonioAcumuladoAno;
+
+      financeChart.update();
+    }
+
+    /* =========================
+       AUTH STATE (AUTO LOGIN FIREBASE)
+    ========================== */
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        currentUser = user;
+        document.getElementById("loginScreen").style.display = "none";
+
+        await carregarDadosUsuario();
+        carregarInfoUsuario();
+        atualizarTudo();
+        atualizarGraficoComResize();
+      } else {
+        currentUser = null;
+        state.data = {};
+        state.selected = {
+          month: new Date().getMonth(),
+          year: new Date().getFullYear()
+        };
+        mesSelect.value = String(state.selected.month);
+        anoSelect.value = String(state.selected.year);
+
+        document.getElementById("userName").textContent = "Usuário";
+        document.getElementById("userEmail").textContent = "Faça login";
+        document.getElementById("userPhoto").src = "https://i.pravatar.cc/150?img=12";
+
+        document.getElementById("loginScreen").style.display = "flex";
+
+        atualizarTudo();
+        atualizarGraficoComResize();
+      }
+    });
+
+    /* =========================
+       MENSAGENS DE ERRO FIREBASE (PT-BR)
+    ========================== */
+    function traduzErroFirebase(err) {
+      const code = err?.code || "";
+
+      const mapa = {
+        "auth/email-already-in-use": "Este e-mail já está em uso.",
+        "auth/invalid-email": "E-mail inválido.",
+        "auth/weak-password": "Senha muito fraca (mínimo de 6 caracteres).",
+        "auth/user-not-found": "Usuário não encontrado.",
+        "auth/wrong-password": "Senha incorreta.",
+        "auth/invalid-credential": "Credenciais inválidas.",
+        "auth/popup-closed-by-user": "Login com Google cancelado.",
+        "auth/network-request-failed": "Falha de conexão. Verifique sua internet.",
+        "auth/too-many-requests": "Muitas tentativas. Tente novamente mais tarde.",
+        "auth/operation-not-allowed": "Método de login não habilitado no Firebase."
+      };
+
+      return mapa[code] || "Ocorreu um erro. Tente novamente.";
+    }
+
+    /* =========================
+       INICIALIZAÇÃO VISUAL
+    ========================== */
+    document.getElementById("userName").textContent = "Usuário";
+    document.getElementById("userEmail").textContent = "Faça login";
+    document.getElementById("userPhoto").src = "https://i.pravatar.cc/150?img=12";
+    document.getElementById("loginScreen").style.display = "flex";
+
+    atualizarTudo();
+    atualizarGraficoComResize();
+  </script>
 </body>
 </html>
-
-
-
-
-
-
-
