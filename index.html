@@ -469,8 +469,6 @@
   </div>
 <script type="module">
 
-/* ================= FIREBASE IMPORTS ================= */
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import {
   getAuth,
@@ -491,7 +489,7 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-/* ================= FIREBASE CONFIG ================= */
+/* ================= FIREBASE ================= */
 
 const firebaseConfig = {
   apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
@@ -522,28 +520,24 @@ const state = {
 /* ================= UTIL ================= */
 
 function uid() {
-  return Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+  return Date.now() + Math.random().toString(36).slice(2);
 }
 
-function formatarBRL(valor) {
-  return Number(valor || 0).toLocaleString("pt-BR", {
+function formatarBRL(v) {
+  return Number(v || 0).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL"
   });
 }
 
-function keyMY(m, y) {
-  return `${y}-${String(m + 1).padStart(2, "0")}`;
+function keyMY(m,y){
+  return `${y}-${String(m+1).padStart(2,"0")}`;
 }
 
-function bucketBy(m, y) {
-  const k = keyMY(m, y);
-  if (!state.data[k]) state.data[k] = { receitas: [], despesas: [] };
+function bucketBy(m,y){
+  const k = keyMY(m,y);
+  if(!state.data[k]) state.data[k] = { receitas:[], despesas:[] };
   return state.data[k];
-}
-
-function bucketAtual() {
-  return bucketBy(state.selected.month, state.selected.year);
 }
 
 /* ================= AUTH ================= */
@@ -552,7 +546,7 @@ btnRegister.onclick = async () => {
   try {
     await createUserWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
     alert("Cadastro realizado!");
-  } catch (err) {
+  } catch(err){
     alert(err.message);
   }
 };
@@ -560,27 +554,18 @@ btnRegister.onclick = async () => {
 btnLogin.onclick = async () => {
   try {
     await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
-  } catch (err) {
+  } catch(err){
     alert(err.message);
   }
 };
 
-/* 🔥 LOGIN GOOGLE COM REDIRECT (corrigido) */
 btnGoogleLogin.onclick = async () => {
-  try {
-    await signInWithRedirect(auth, provider);
-  } catch (err) {
-    alert(err.message);
-  }
+  await signInWithRedirect(auth, provider);
 };
 
 btnResetPass.onclick = async () => {
-  try {
-    await sendPasswordResetEmail(auth, loginEmail.value);
-    alert("E-mail enviado!");
-  } catch (err) {
-    alert(err.message);
-  }
+  await sendPasswordResetEmail(auth, loginEmail.value);
+  alert("E-mail enviado!");
 };
 
 window.logout = async () => {
@@ -589,40 +574,30 @@ window.logout = async () => {
 
 /* ================= FIRESTORE ================= */
 
-async function salvarDados() {
-  if (!currentUser) return;
-
-  await setDoc(doc(db, "finance_users", currentUser.uid), {
+async function salvarDados(){
+  if(!currentUser) return;
+  await setDoc(doc(db,"finance_users",currentUser.uid),{
     data: state.data,
     selected: state.selected
-  }, { merge: true });
+  },{merge:true});
 }
 
-async function carregarDados() {
-  if (!currentUser) return;
-
-  const refDoc = doc(db, "finance_users", currentUser.uid);
-  const snap = await getDoc(refDoc);
-
-  if (snap.exists()) {
+async function carregarDados(){
+  if(!currentUser) return;
+  const snap = await getDoc(doc(db,"finance_users",currentUser.uid));
+  if(snap.exists()){
     const payload = snap.data();
     state.data = payload.data || {};
     state.selected = payload.selected || state.selected;
-  } else {
-    state.data = {};
-    await setDoc(refDoc, {
-      data: {},
-      selected: state.selected
-    });
   }
 }
 
 /* ================= AUTH STATE ================= */
 
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
+onAuthStateChanged(auth, async(user)=>{
+  if(user){
     currentUser = user;
-    loginScreen.style.display = "none";
+    loginScreen.style.display="none";
 
     await carregarDados();
 
@@ -630,143 +605,105 @@ onAuthStateChanged(auth, async (user) => {
     userEmail.textContent = user.email;
 
     atualizarTudo();
-  } else {
-    currentUser = null;
-    state.data = {};
-    loginScreen.style.display = "flex";
+  }else{
+    loginScreen.style.display="flex";
+    state.data={};
   }
 });
 
-/* 🔥 Necessário para login redirect funcionar */
 await getRedirectResult(auth).catch(()=>{});
 
-/* ================= RECEITAS ================= */
+/* ================= RECEITA ================= */
 
-window.addReceita = async () => {
+window.addReceita = async ()=>{
   const desc = descReceita.value.trim();
   const valor = parseFloat(valorReceita.value);
+  if(!desc || !valor) return alert("Preencha.");
 
-  if (!desc || !valor) return alert("Preencha os campos.");
+  bucketBy(state.selected.month,state.selected.year)
+    .receitas.push({id:uid(),desc,valor});
 
-  bucketAtual().receitas.push({ id: uid(), desc, valor });
-
-  descReceita.value = "";
-  valorReceita.value = "";
-
+  descReceita.value="";
+  valorReceita.value="";
   await salvarDados();
   atualizarTudo();
 };
 
-/* ================= DESPESAS ================= */
+/* ================= DESPESA ================= */
 
-window.addDespesa = async () => {
+window.addDespesa = async ()=>{
   const desc = descDespesa.value.trim();
   const valor = parseFloat(valorDespesa.value);
+  const parcelas = parseInt(parcelasDespesa.value);
 
-  if (!desc || !valor) return alert("Preencha os campos.");
+  if(!desc||!valor||!parcelas) return alert("Preencha.");
 
-  bucketAtual().despesas.push({ id: uid(), desc, valor });
+  for(let i=0;i<parcelas;i++){
+    const d = new Date(state.selected.year,state.selected.month+i);
+    bucketBy(d.getMonth(),d.getFullYear())
+      .despesas.push({
+        id:uid(),
+        desc,
+        valor,
+        parcela:i+1,
+        totalParcelas:parcelas
+      });
+  }
 
-  descDespesa.value = "";
-  valorDespesa.value = "";
-
+  descDespesa.value="";
+  valorDespesa.value="";
+  parcelasDespesa.value="1";
   await salvarDados();
   atualizarTudo();
 };
 
 /* ================= RENDER ================= */
 
-function atualizarTudo() {
-  renderListas();
+function atualizarTudo(){
   atualizarResumo();
   atualizarGrafico();
 }
 
-function renderListas() {
-  const bucket = bucketAtual();
-
-  listaReceitas.innerHTML = bucket.receitas.map(r => `
-    <li class="list-item">
-      <div class="item-left">
-        <strong>${r.desc}</strong>
-        <span>${formatarBRL(r.valor)}</span>
-      </div>
-    </li>
-  `).join("");
-
-  listaDespesas.innerHTML = bucket.despesas.map(d => `
-    <li class="list-item">
-      <div class="item-left">
-        <strong>${d.desc}</strong>
-        <span>${formatarBRL(d.valor)}</span>
-      </div>
-    </li>
-  `).join("");
-
-  emptyReceitas.style.display = bucket.receitas.length ? "none" : "block";
-  emptyDespesas.style.display = bucket.despesas.length ? "none" : "block";
-}
-
-function atualizarResumo() {
-  const bucket = bucketAtual();
-
-  const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
-  const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
-  const saldo = totalR - totalD;
+function atualizarResumo(){
+  const b = bucketBy(state.selected.month,state.selected.year);
+  const totalR = b.receitas.reduce((a,b)=>a+b.valor,0);
+  const totalD = b.despesas.reduce((a,b)=>a+b.valor,0);
 
   totalReceitas.textContent = formatarBRL(totalR);
   totalDespesas.textContent = formatarBRL(totalD);
-  saldoTotal.textContent = formatarBRL(saldo);
-
-  atualizarPatrimonio();
+  saldoTotal.textContent = formatarBRL(totalR-totalD);
 }
 
-function atualizarPatrimonio() {
-  let acumulado = 0;
+/* ================= GRAFICO ================= */
 
-  for (let m=0; m<12; m++) {
-    const b = bucketBy(m, state.selected.year);
-    const r = b.receitas.reduce((a,b)=>a+b.valor,0);
-    const d = b.despesas.reduce((a,b)=>a+b.valor,0);
-    acumulado += (r - d);
-  }
-
-  patrimonioAcumulado.textContent = formatarBRL(acumulado);
-}
-
-/* ================= GRÁFICO ================= */
-
-const ctx = financeChart.getContext("2d");
-
-const chart = new Chart(ctx, {
-  type: "bar",
-  data: {
-    labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
-    datasets: [
-      { label: "Receitas", data: Array(12).fill(0) },
-      { label: "Despesas", data: Array(12).fill(0) }
+const chart = new Chart(financeChart,{
+  type:"bar",
+  data:{
+    labels:["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
+    datasets:[
+      {label:"Receitas",data:Array(12).fill(0)},
+      {label:"Despesas",data:Array(12).fill(0)}
     ]
   }
 });
 
-function atualizarGrafico() {
-  const receitasAno = [];
-  const despesasAno = [];
-
-  for (let m=0; m<12; m++) {
-    const b = bucketBy(m, state.selected.year);
-    receitasAno.push(b.receitas.reduce((a,b)=>a+b.valor,0));
-    despesasAno.push(b.despesas.reduce((a,b)=>a+b.valor,0));
+function atualizarGrafico(){
+  const receitas=[];
+  const despesas=[];
+  for(let m=0;m<12;m++){
+    const b=bucketBy(m,state.selected.year);
+    receitas.push(b.receitas.reduce((a,b)=>a+b.valor,0));
+    despesas.push(b.despesas.reduce((a,b)=>a+b.valor,0));
   }
-
-  chart.data.datasets[0].data = receitasAno;
-  chart.data.datasets[1].data = despesasAno;
+  chart.data.datasets[0].data=receitas;
+  chart.data.datasets[1].data=despesas;
   chart.update();
 }
 
 </script>
 </body>
 </html>
+
 
 
 
