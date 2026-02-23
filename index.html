@@ -6,23 +6,9 @@
   <title>Painel Financeiro</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: Arial, Helvetica, sans-serif;
-    }
-
-    body {
-      background: #0f172a;
-      color: #fff;
-      min-height: 100vh;
-    }
-
-    .container {
-      display: flex;
-      min-height: 100vh;
-    }
+    * { margin:0; padding:0; box-sizing:border-box; font-family: Arial, Helvetica, sans-serif; }
+    body { background: #0f172a; color: #fff; min-height: 100vh; }
+    .container { display: flex; min-height: 100vh; }
 
     .sidebar {
       width: 280px;
@@ -52,17 +38,8 @@
       margin-bottom: 10px;
     }
 
-    .user-card h2 {
-      font-size: 18px;
-      margin-bottom: 4px;
-    }
-
-    .user-card p {
-      font-size: 13px;
-      color: #cbd5e1;
-      margin-bottom: 12px;
-      word-break: break-word;
-    }
+    .user-card h2 { font-size: 18px; margin-bottom: 4px; }
+    .user-card p { font-size: 13px; color: #cbd5e1; margin-bottom: 12px; word-break: break-word; }
 
     .logout-btn {
       width: 100%;
@@ -75,18 +52,9 @@
       font-weight: bold;
       transition: 0.2s;
     }
+    .logout-btn:hover { background: #dc2626; }
 
-    .logout-btn:hover {
-      background: #dc2626;
-    }
-
-    nav ul {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
+    nav ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
     nav li {
       padding: 14px;
       background: #334155;
@@ -96,39 +64,73 @@
       border: 1px solid transparent;
       user-select: none;
     }
+    nav li:hover { background: #475569; }
+    nav li.active { border-color: #60a5fa; background: #1d4ed8; }
 
-    nav li:hover {
-      background: #475569;
+    .content { flex: 1; padding: 24px; overflow-y: auto; }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .topbar-left h1 { font-size: 24px; }
+
+    .periodo-box {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 10px;
+      border-radius: 12px;
+      flex-wrap: wrap;
+    }
+    .periodo-box label { font-size: 13px; color: #cbd5e1; }
+
+    select, input {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      background: #0f172a;
+      color: #fff;
+      outline: none;
+    }
+    select:focus, input:focus { border-color: #60a5fa; }
+
+    .resumo {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
     }
 
-    nav li.active {
-      border-color: #60a5fa;
-      background: #1d4ed8;
+    .mini-card {
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 14px;
     }
+    .mini-card h3 {
+      font-size: 13px;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+      font-weight: normal;
+    }
+    .mini-card p { font-size: 20px; font-weight: bold; }
+    .positivo { color: #34d399; }
+    .negativo { color: #f87171; }
 
-    .content {
-      flex: 1;
-      padding: 24px;
-      overflow-y: auto;
-    }
-
-    .section {
-      display: none;
-      animation: fade 0.25s ease;
-    }
-
-    .section.active {
-      display: block;
-    }
+    .section { display: none; animation: fade 0.2s ease; }
+    .section.active { display: block; }
 
     @keyframes fade {
-      from { opacity: 0; transform: translateY(6px); }
+      from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
-    }
-
-    .page-title {
-      font-size: 26px;
-      margin-bottom: 16px;
     }
 
     .card {
@@ -138,6 +140,7 @@
       padding: 16px;
       margin-bottom: 18px;
     }
+    .card h3 { margin-bottom: 10px; }
 
     .form-grid {
       display: grid;
@@ -146,18 +149,11 @@
       margin-top: 10px;
     }
 
-    input {
-      width: 100%;
-      padding: 11px 12px;
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px;
-      background: #0f172a;
-      color: #fff;
-      outline: none;
-    }
-
-    input:focus {
-      border-color: #60a5fa;
+    .form-grid-despesa {
+      display: grid;
+      grid-template-columns: 1fr 140px 120px 140px;
+      gap: 10px;
+      margin-top: 10px;
     }
 
     .btn {
@@ -170,10 +166,7 @@
       font-weight: bold;
       transition: 0.2s;
     }
-
-    .btn:hover {
-      background: #2563eb;
-    }
+    .btn:hover { background: #2563eb; }
 
     .list {
       list-style: none;
@@ -209,94 +202,39 @@
       text-overflow: ellipsis;
     }
 
-    .item-left span {
-      font-size: 12px;
-      color: #94a3b8;
-    }
+    .item-left span { font-size: 12px; color: #94a3b8; }
+    .item-value { font-weight: bold; white-space: nowrap; }
+    .item-value.receita { color: #34d399; }
+    .item-value.despesa { color: #f87171; }
 
-    .item-value {
-      font-weight: bold;
-      white-space: nowrap;
-    }
+    .empty { color: #94a3b8; font-size: 14px; margin-top: 8px; }
 
-    .item-value.receita {
-      color: #34d399;
-    }
-
-    .item-value.despesa {
-      color: #f87171;
-    }
-
-    .resumo {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    .resumo .mini-card {
-      background: #111827;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 14px;
-      padding: 14px;
-    }
-
-    .mini-card h3 {
-      font-size: 13px;
-      color: #cbd5e1;
-      margin-bottom: 6px;
-      font-weight: normal;
-    }
-
-    .mini-card p {
-      font-size: 20px;
-      font-weight: bold;
-    }
-
-    .positivo { color: #34d399; }
-    .negativo { color: #f87171; }
-
-    .empty {
-      color: #94a3b8;
-      font-size: 14px;
-      margin-top: 8px;
-    }
-
-    canvas {
+    .chart-wrap {
+      height: 360px;
+      margin-top: 10px;
       background: #0f172a;
       border-radius: 12px;
-      padding: 8px;
       border: 1px solid rgba(255,255,255,0.06);
+      padding: 8px;
     }
 
-    @media (max-width: 900px) {
-      .container {
-        flex-direction: column;
-      }
+    canvas { width: 100% !important; height: 100% !important; }
 
+    @media (max-width: 980px) {
+      .container { flex-direction: column; }
       .sidebar {
         width: 100%;
         border-right: none;
         border-bottom: 1px solid rgba(255,255,255,0.08);
       }
-
-      .content {
-        padding: 16px;
-      }
-
-      .resumo {
-        grid-template-columns: 1fr;
-      }
-
-      .form-grid {
-        grid-template-columns: 1fr;
-      }
+      .content { padding: 16px; }
+      .resumo { grid-template-columns: 1fr; }
+      .form-grid, .form-grid-despesa { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- MENU LATERAL -->
     <aside class="sidebar">
       <div>
         <div class="user-card">
@@ -314,15 +252,20 @@
           </ul>
         </nav>
       </div>
-
-      <div style="font-size:12px;color:#94a3b8;text-align:center;">
-        Painel Financeiro
-      </div>
+      <div style="font-size:12px;color:#94a3b8;text-align:center;">Painel Financeiro</div>
     </aside>
 
-    <!-- CONTEÚDO -->
     <main class="content">
-      <!-- Resumo -->
+      <div class="topbar">
+        <div class="topbar-left"><h1>Painel Financeiro</h1></div>
+        <div class="periodo-box">
+          <label for="mesSelect">Mês:</label>
+          <select id="mesSelect"></select>
+          <label for="anoSelect">Ano:</label>
+          <select id="anoSelect"></select>
+        </div>
+      </div>
+
       <div class="resumo">
         <div class="mini-card">
           <h3>Total de Receitas</h3>
@@ -338,9 +281,7 @@
         </div>
       </div>
 
-      <!-- Seção Receitas -->
       <section id="receitas" class="section active">
-        <h1 class="page-title">Receitas</h1>
         <div class="card">
           <h3>Adicionar receita</h3>
           <div class="form-grid">
@@ -348,33 +289,32 @@
             <input type="number" id="valorReceita" placeholder="Valor" step="0.01" />
             <button class="btn" onclick="addReceita()">Adicionar</button>
           </div>
+
           <ul id="listaReceitas" class="list"></ul>
-          <p id="emptyReceitas" class="empty">Nenhuma receita cadastrada.</p>
+          <p id="emptyReceitas" class="empty">Nenhuma receita cadastrada neste mês.</p>
         </div>
       </section>
 
-      <!-- Seção Despesas -->
       <section id="despesas" class="section">
-        <h1 class="page-title">Despesas</h1>
         <div class="card">
           <h3>Adicionar despesa</h3>
-          <div class="form-grid">
+          <div class="form-grid-despesa">
             <input type="text" id="descDespesa" placeholder="Descrição (ex: Aluguel)" />
             <input type="number" id="valorDespesa" placeholder="Valor" step="0.01" />
+            <input type="number" id="parcelasDespesa" placeholder="Parcelas" min="1" value="1" />
             <button class="btn" onclick="addDespesa()">Adicionar</button>
           </div>
+
           <ul id="listaDespesas" class="list"></ul>
-          <p id="emptyDespesas" class="empty">Nenhuma despesa cadastrada.</p>
+          <p id="emptyDespesas" class="empty">Nenhuma despesa cadastrada neste mês.</p>
         </div>
       </section>
 
-      <!-- Seção Gráficos -->
       <section id="graficos" class="section">
-        <h1 class="page-title">Gráficos de rendimento</h1>
         <div class="card">
-          <h3>Resumo financeiro</h3>
-          <div style="margin-top:12px;">
-            <canvas id="financeChart" height="120"></canvas>
+          <h3>Rendimento anual (ano selecionado)</h3>
+          <div class="chart-wrap">
+            <canvas id="financeChart"></canvas>
           </div>
         </div>
       </section>
@@ -382,24 +322,25 @@
   </div>
 
   <script>
-    // =========================
-    // DADOS DO USUÁRIO (exemplo)
-    // =========================
     const usuario = {
       nome: "Paulo Rodrigues",
       email: "paulo@email.com",
       foto: "https://i.pravatar.cc/150?img=12"
     };
 
-    // =========================
-    // ESTADO
-    // =========================
-    let receitas = [];
-    let despesas = [];
+    const state = {
+      selected: {
+        month: new Date().getMonth(),
+        year: new Date().getFullYear()
+      },
+      data: {}
+    };
 
-    // =========================
-    // UTIL
-    // =========================
+    const mesesNomes = [
+      "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+      "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+    ];
+
     function formatarBRL(valor) {
       return Number(valor || 0).toLocaleString("pt-BR", {
         style: "currency",
@@ -407,14 +348,69 @@
       });
     }
 
-    // =========================
-    // INICIALIZAÇÃO
-    // =========================
+    function keyMY(month, year) {
+      return `${year}-${String(month + 1).padStart(2, "0")}`;
+    }
+
+    function bucketBy(month, year) {
+      const key = keyMY(month, year);
+      if (!state.data[key]) state.data[key] = { receitas: [], despesas: [] };
+      return state.data[key];
+    }
+
+    function bucketAtual() {
+      return bucketBy(state.selected.month, state.selected.year);
+    }
+
+    function textoPeriodoAtual() {
+      return `${mesesNomes[state.selected.month]}/${state.selected.year}`;
+    }
+
+    function somarMeses(month, year, add) {
+      const base = new Date(year, month, 1);
+      base.setMonth(base.getMonth() + add);
+      return { month: base.getMonth(), year: base.getFullYear() };
+    }
+
+    // Usuário
     document.getElementById("userName").textContent = usuario.nome;
     document.getElementById("userEmail").textContent = usuario.email;
     document.getElementById("userPhoto").src = usuario.foto;
 
-    // Menu
+    // Selects mês/ano
+    const mesSelect = document.getElementById("mesSelect");
+    const anoSelect = document.getElementById("anoSelect");
+
+    mesesNomes.forEach((nome, i) => {
+      const opt = document.createElement("option");
+      opt.value = i;
+      opt.textContent = nome;
+      if (i === state.selected.month) opt.selected = true;
+      mesSelect.appendChild(opt);
+    });
+
+    const anoAtual = new Date().getFullYear();
+    for (let ano = anoAtual - 5; ano <= anoAtual + 5; ano++) {
+      const opt = document.createElement("option");
+      opt.value = ano;
+      opt.textContent = ano;
+      if (ano === state.selected.year) opt.selected = true;
+      anoSelect.appendChild(opt);
+    }
+
+    mesSelect.addEventListener("change", () => {
+      state.selected.month = Number(mesSelect.value);
+      atualizarTudo();
+      atualizarGraficoComResize();
+    });
+
+    anoSelect.addEventListener("change", () => {
+      state.selected.year = Number(anoSelect.value);
+      atualizarTudo();
+      atualizarGraficoComResize();
+    });
+
+    // Menu lateral
     document.querySelectorAll(".menu-item").forEach(item => {
       item.addEventListener("click", () => {
         document.querySelectorAll(".menu-item").forEach(i => i.classList.remove("active"));
@@ -423,29 +419,33 @@
         const target = item.dataset.target;
         document.querySelectorAll(".section").forEach(sec => sec.classList.remove("active"));
         document.getElementById(target).classList.add("active");
+
+        if (target === "graficos") atualizarGraficoComResize();
       });
     });
 
-    // =========================
-    // GRÁFICO
-    // =========================
+    // Gráfico ANUAL
     const ctx = document.getElementById("financeChart").getContext("2d");
     const financeChart = new Chart(ctx, {
-      type: "bar",
+      type: "line",
       data: {
-        labels: ["Receitas", "Despesas", "Saldo"],
-        datasets: [{
-          label: "Valores (R$)",
-          data: [0, 0, 0],
-          borderWidth: 1
-        }]
+        labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
+        datasets: [
+          { label: "Receitas", data: Array(12).fill(0), tension: 0.3, borderWidth: 2 },
+          { label: "Despesas", data: Array(12).fill(0), tension: 0.3, borderWidth: 2 },
+          { label: "Saldo", data: Array(12).fill(0), tension: 0.3, borderWidth: 2 }
+        ]
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
-          legend: {
-            labels: {
-              color: "#fff"
+          legend: { labels: { color: "#fff" } },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return " " + context.dataset.label + ": " + formatarBRL(context.raw);
+              }
             }
           }
         },
@@ -455,16 +455,23 @@
             grid: { color: "rgba(255,255,255,0.08)" }
           },
           y: {
-            ticks: { color: "#cbd5e1" },
+            ticks: {
+              color: "#cbd5e1",
+              callback: (value) => "R$ " + Number(value).toLocaleString("pt-BR")
+            },
             grid: { color: "rgba(255,255,255,0.08)" }
           }
         }
       }
     });
 
-    // =========================
-    // AÇÕES
-    // =========================
+    function atualizarGraficoComResize() {
+      setTimeout(() => {
+        financeChart.resize();
+        financeChart.update();
+      }, 80);
+    }
+
     function addReceita() {
       const descInput = document.getElementById("descReceita");
       const valorInput = document.getElementById("valorReceita");
@@ -477,7 +484,7 @@
         return;
       }
 
-      receitas.push({
+      bucketAtual().receitas.push({
         id: Date.now(),
         desc,
         valor
@@ -491,36 +498,50 @@
     function addDespesa() {
       const descInput = document.getElementById("descDespesa");
       const valorInput = document.getElementById("valorDespesa");
+      const parcelasInput = document.getElementById("parcelasDespesa");
 
       const desc = descInput.value.trim();
       const valor = parseFloat(valorInput.value);
+      const parcelas = parseInt(parcelasInput.value, 10);
 
       if (!desc || isNaN(valor) || valor <= 0) {
         alert("Preencha a descrição e um valor válido para a despesa.");
         return;
       }
 
-      despesas.push({
-        id: Date.now(),
-        desc,
-        valor
-      });
+      if (isNaN(parcelas) || parcelas < 1) {
+        alert("Informe uma quantidade de parcelas válida.");
+        return;
+      }
+
+      const grupoId = Date.now().toString();
+
+      // Cria parcelas nos próximos meses (sem dividir valor)
+      for (let i = 0; i < parcelas; i++) {
+        const destino = somarMeses(state.selected.month, state.selected.year, i);
+        const bucket = bucketBy(destino.month, destino.year);
+
+        bucket.despesas.push({
+          id: Number(`${Date.now()}${i}`),
+          grupoId,
+          desc,
+          valor,
+          parcelasTotal: parcelas,
+          parcelaAtual: i + 1
+        });
+      }
 
       descInput.value = "";
       valorInput.value = "";
+      parcelasInput.value = "1";
       atualizarTudo();
     }
 
     function logout() {
       alert("Você saiu da conta!");
-      // Aqui você pode redirecionar para tela de login:
-      // window.location.href = "login.html";
       location.reload();
     }
 
-    // =========================
-    // RENDER
-    // =========================
     function atualizarTudo() {
       renderListas();
       atualizarResumo();
@@ -528,38 +549,42 @@
     }
 
     function renderListas() {
+      const bucket = bucketAtual();
+
       const listaReceitas = document.getElementById("listaReceitas");
       const listaDespesas = document.getElementById("listaDespesas");
       const emptyReceitas = document.getElementById("emptyReceitas");
       const emptyDespesas = document.getElementById("emptyDespesas");
 
-      listaReceitas.innerHTML = receitas.map(item => `
+      listaReceitas.innerHTML = bucket.receitas.map(item => `
         <li class="list-item">
           <div class="item-left">
             <strong>${item.desc}</strong>
-            <span>Receita cadastrada</span>
+            <span>${textoPeriodoAtual()}</span>
           </div>
           <div class="item-value receita">${formatarBRL(item.valor)}</div>
         </li>
       `).join("");
 
-      listaDespesas.innerHTML = despesas.map(item => `
+      listaDespesas.innerHTML = bucket.despesas.map(item => `
         <li class="list-item">
           <div class="item-left">
             <strong>${item.desc}</strong>
-            <span>Despesa cadastrada</span>
+            <span>${textoPeriodoAtual()} • Parcela ${item.parcelaAtual}/${item.parcelasTotal}</span>
           </div>
           <div class="item-value despesa">${formatarBRL(item.valor)}</div>
         </li>
       `).join("");
 
-      emptyReceitas.style.display = receitas.length ? "none" : "block";
-      emptyDespesas.style.display = despesas.length ? "none" : "block";
+      emptyReceitas.style.display = bucket.receitas.length ? "none" : "block";
+      emptyDespesas.style.display = bucket.despesas.length ? "none" : "block";
     }
 
     function atualizarResumo() {
-      const totalR = receitas.reduce((acc, item) => acc + item.valor, 0);
-      const totalD = despesas.reduce((acc, item) => acc + item.valor, 0);
+      const bucket = bucketAtual();
+
+      const totalR = bucket.receitas.reduce((acc, item) => acc + item.valor, 0);
+      const totalD = bucket.despesas.reduce((acc, item) => acc + item.valor, 0);
       const saldo = totalR - totalD;
 
       document.getElementById("totalReceitas").textContent = formatarBRL(totalR);
@@ -571,17 +596,38 @@
       saldoEl.classList.add(saldo >= 0 ? "positivo" : "negativo");
     }
 
+    // ✅ Gráfico agora sempre soma o ANO TODO selecionado
     function atualizarGrafico() {
-      const totalR = receitas.reduce((acc, item) => acc + item.valor, 0);
-      const totalD = despesas.reduce((acc, item) => acc + item.valor, 0);
-      const saldo = totalR - totalD;
+      const receitasAno = [];
+      const despesasAno = [];
+      const saldoAno = [];
 
-      financeChart.data.datasets[0].data = [totalR, totalD, saldo];
+      for (let mes = 0; mes < 12; mes++) {
+        const bucket = bucketBy(mes, state.selected.year);
+
+        const totalR = bucket.receitas.reduce((acc, item) => acc + item.valor, 0);
+        const totalD = bucket.despesas.reduce((acc, item) => acc + item.valor, 0);
+        const saldo = totalR - totalD;
+
+        receitasAno.push(totalR);
+        despesasAno.push(totalD);
+        saldoAno.push(saldo);
+      }
+
+      financeChart.data.datasets[0].label = `Receitas (${state.selected.year})`;
+      financeChart.data.datasets[1].label = `Despesas (${state.selected.year})`;
+      financeChart.data.datasets[2].label = `Saldo (${state.selected.year})`;
+
+      financeChart.data.datasets[0].data = receitasAno;
+      financeChart.data.datasets[1].data = despesasAno;
+      financeChart.data.datasets[2].data = saldoAno;
+
       financeChart.update();
     }
 
-    // Estado inicial
+    // Inicialização
     atualizarTudo();
+    atualizarGraficoComResize();
   </script>
 </body>
 </html>
