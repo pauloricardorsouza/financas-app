@@ -523,21 +523,46 @@ function uid() {
   return Date.now() + Math.random().toString(36).slice(2);
 }
 
-function formatarBRL(v) {
-  return Number(v || 0).toLocaleString("pt-BR", {
+function formatarBRL(valor) {
+  return Number(valor || 0).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL"
   });
 }
 
-function keyMY(m,y){
-  return `${y}-${String(m+1).padStart(2,"0")}`;
+function keyMY(m, y) {
+  return `${y}-${String(m + 1).padStart(2, "0")}`;
 }
 
-function bucketBy(m,y){
-  const k = keyMY(m,y);
-  if(!state.data[k]) state.data[k] = { receitas:[], despesas:[] };
+function bucketBy(m, y) {
+  const k = keyMY(m, y);
+  if (!state.data[k]) state.data[k] = { receitas: [], despesas: [] };
   return state.data[k];
+}
+
+function somarMeses(m, y, add) {
+  const d = new Date(y, m, 1);
+  d.setMonth(d.getMonth() + add);
+  return { month: d.getMonth(), year: d.getFullYear() };
+}
+
+/* ================= FIRESTORE ================= */
+
+async function salvarDados() {
+  if (!currentUser) return;
+  await setDoc(doc(db, "finance_users", currentUser.uid), {
+    data: state.data,
+    selected: state.selected
+  }, { merge: true });
+}
+
+async function carregarDados() {
+  const snap = await getDoc(doc(db, "finance_users", currentUser.uid));
+  if (snap.exists()) {
+    const payload = snap.data();
+    state.data = payload.data || {};
+    state.selected = payload.selected || state.selected;
+  }
 }
 
 /* ================= AUTH ================= */
@@ -546,7 +571,7 @@ btnRegister.onclick = async () => {
   try {
     await createUserWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
     alert("Cadastro realizado!");
-  } catch(err){
+  } catch (err) {
     alert(err.message);
   }
 };
@@ -554,7 +579,7 @@ btnRegister.onclick = async () => {
 btnLogin.onclick = async () => {
   try {
     await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
-  } catch(err){
+  } catch (err) {
     alert(err.message);
   }
 };
@@ -572,42 +597,23 @@ window.logout = async () => {
   await signOut(auth);
 };
 
-/* ================= FIRESTORE ================= */
-
-async function salvarDados(){
-  if(!currentUser) return;
-  await setDoc(doc(db,"finance_users",currentUser.uid),{
-    data: state.data,
-    selected: state.selected
-  },{merge:true});
-}
-
-async function carregarDados(){
-  if(!currentUser) return;
-  const snap = await getDoc(doc(db,"finance_users",currentUser.uid));
-  if(snap.exists()){
-    const payload = snap.data();
-    state.data = payload.data || {};
-    state.selected = payload.selected || state.selected;
-  }
-}
-
 /* ================= AUTH STATE ================= */
 
-onAuthStateChanged(auth, async(user)=>{
-  if(user){
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
     currentUser = user;
-    loginScreen.style.display="none";
-
-    await carregarDados();
+    loginScreen.style.display = "none";
 
     userName.textContent = user.displayName || user.email;
     userEmail.textContent = user.email;
+    userPhoto.src = user.photoURL || "https://i.pravatar.cc/150?img=12";
 
+    await carregarDados();
     atualizarTudo();
-  }else{
-    loginScreen.style.display="flex";
-    state.data={};
+  } else {
+    currentUser = null;
+    loginScreen.style.display = "flex";
+    state.data = {};
   }
 });
 
@@ -615,66 +621,102 @@ await getRedirectResult(auth).catch(()=>{});
 
 /* ================= RECEITA ================= */
 
-window.addReceita = async ()=>{
+window.addReceita = async () => {
   const desc = descReceita.value.trim();
   const valor = parseFloat(valorReceita.value);
-  if(!desc || !valor) return alert("Preencha.");
+  const tipo = tipoReceita.value;
+  const meses = parseInt(mesesRecorrenciaReceita.value);
 
-  bucketBy(state.selected.month,state.selected.year)
-    .receitas.push({id:uid(),desc,valor});
+  if (!desc || !valor) return alert("Preencha os campos.");
 
-  descReceita.value="";
-  valorReceita.value="";
+  if (tipo === "unica") {
+    bucketBy(state.selected.month, state.selected.year)
+      .receitas.push({ id: uid(), desc, valor });
+  } else {
+    for (let i = 0; i < meses; i++) {
+      const destino = somarMeses(state.selected.month, state.selected.year, i);
+      bucketBy(destino.month, destino.year)
+        .receitas.push({
+          id: uid(),
+          desc,
+          valor,
+          recorrenciaAtual: i + 1,
+          recorrenciaTotal: meses
+        });
+    }
+  }
+
+  descReceita.value = "";
+  valorReceita.value = "";
+  mesesRecorrenciaReceita.value = "12";
+
   await salvarDados();
   atualizarTudo();
 };
 
 /* ================= DESPESA ================= */
 
-window.addDespesa = async ()=>{
+window.addDespesa = async () => {
   const desc = descDespesa.value.trim();
   const valor = parseFloat(valorDespesa.value);
   const parcelas = parseInt(parcelasDespesa.value);
 
-  if(!desc||!valor||!parcelas) return alert("Preencha.");
+  if (!desc || !valor || !parcelas) return alert("Preencha os campos.");
 
-  for(let i=0;i<parcelas;i++){
-    const d = new Date(state.selected.year,state.selected.month+i);
-    bucketBy(d.getMonth(),d.getFullYear())
+  for (let i = 0; i < parcelas; i++) {
+    const destino = somarMeses(state.selected.month, state.selected.year, i);
+    bucketBy(destino.month, destino.year)
       .despesas.push({
-        id:uid(),
+        id: uid(),
         desc,
         valor,
-        parcela:i+1,
-        totalParcelas:parcelas
+        parcelaAtual: i + 1,
+        parcelasTotal: parcelas
       });
   }
 
-  descDespesa.value="";
-  valorDespesa.value="";
-  parcelasDespesa.value="1";
+  descDespesa.value = "";
+  valorDespesa.value = "";
+  parcelasDespesa.value = "1";
+
+  await salvarDados();
+  atualizarTudo();
+};
+
+/* ================= EXCLUSÃO ================= */
+
+window.excluirReceita = async (id) => {
+  const bucket = bucketBy(state.selected.month, state.selected.year);
+  bucket.receitas = bucket.receitas.filter(r => r.id !== id);
+  await salvarDados();
+  atualizarTudo();
+};
+
+window.excluirDespesa = async (id) => {
+  const bucket = bucketBy(state.selected.month, state.selected.year);
+  bucket.despesas = bucket.despesas.filter(d => d.id !== id);
   await salvarDados();
   atualizarTudo();
 };
 
 /* ================= RENDER ================= */
 
-function atualizarTudo(){
+function atualizarTudo() {
   atualizarResumo();
   atualizarGrafico();
 }
 
-function atualizarResumo(){
-  const b = bucketBy(state.selected.month,state.selected.year);
-  const totalR = b.receitas.reduce((a,b)=>a+b.valor,0);
-  const totalD = b.despesas.reduce((a,b)=>a+b.valor,0);
+function atualizarResumo() {
+  const bucket = bucketBy(state.selected.month, state.selected.year);
+  const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
+  const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
 
   totalReceitas.textContent = formatarBRL(totalR);
   totalDespesas.textContent = formatarBRL(totalD);
-  saldoTotal.textContent = formatarBRL(totalR-totalD);
+  saldoTotal.textContent = formatarBRL(totalR - totalD);
 }
 
-/* ================= GRAFICO ================= */
+/* ================= GRÁFICO ================= */
 
 const chart = new Chart(financeChart,{
   type:"bar",
@@ -682,7 +724,8 @@ const chart = new Chart(financeChart,{
     labels:["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
     datasets:[
       {label:"Receitas",data:Array(12).fill(0)},
-      {label:"Despesas",data:Array(12).fill(0)}
+      {label:"Despesas",data:Array(12).fill(0)},
+      {label:"Saldo",type:"line",data:Array(12).fill(0)}
     ]
   }
 });
@@ -690,19 +733,25 @@ const chart = new Chart(financeChart,{
 function atualizarGrafico(){
   const receitas=[];
   const despesas=[];
+  const saldo=[];
   for(let m=0;m<12;m++){
     const b=bucketBy(m,state.selected.year);
-    receitas.push(b.receitas.reduce((a,b)=>a+b.valor,0));
-    despesas.push(b.despesas.reduce((a,b)=>a+b.valor,0));
+    const r=b.receitas.reduce((a,b)=>a+b.valor,0);
+    const d=b.despesas.reduce((a,b)=>a+b.valor,0);
+    receitas.push(r);
+    despesas.push(d);
+    saldo.push(r-d);
   }
   chart.data.datasets[0].data=receitas;
   chart.data.datasets[1].data=despesas;
+  chart.data.datasets[2].data=saldo;
   chart.update();
 }
 
 </script>
 </body>
 </html>
+
 
 
 
