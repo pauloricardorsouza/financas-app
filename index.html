@@ -473,35 +473,23 @@ const db = getFirestore(app);
 const $ = id => document.getElementById(id);
 
 const loginScreen = $("loginScreen");
-const loginEmail = $("loginEmail");
-const loginPass = $("loginPass");
 const btnLogin = $("btnLogin");
 const btnRegister = $("btnRegister");
+const loginEmail = $("loginEmail");
+const loginPass = $("loginPass");
 
-const userPhoto = $("userPhoto");
 const userName = $("userName");
 const userEmail = $("userEmail");
 
 const mesSelect = $("mesSelect");
 const anoSelect = $("anoSelect");
 
+const listaReceitas = $("listaReceitas");
+const listaDespesas = $("listaDespesas");
+
 const totalReceitas = $("totalReceitas");
 const totalDespesas = $("totalDespesas");
 const saldoTotal = $("saldoTotal");
-
-const descReceita = $("descReceita");
-const valorReceita = $("valorReceita");
-const tipoReceita = $("tipoReceita");
-const mesesRecorrenciaReceita = $("mesesRecorrenciaReceita");
-
-const descDespesa = $("descDespesa");
-const valorDespesa = $("valorDespesa");
-const parcelasDespesa = $("parcelasDespesa");
-
-const listaReceitas = $("listaReceitas");
-const listaDespesas = $("listaDespesas");
-const emptyReceitas = $("emptyReceitas");
-const emptyDespesas = $("emptyDespesas");
 
 const financeChartCanvas = $("financeChart");
 
@@ -509,7 +497,7 @@ const financeChartCanvas = $("financeChart");
 
 let currentUser = null;
 
-const mesesNomes = [
+const meses = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
   "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
 ];
@@ -524,250 +512,224 @@ const state = {
 
 /* UTIL */
 
-function uid() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+function formatarBRL(v){
+  return Number(v || 0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 }
 
-function formatarBRL(valor) {
-  return Number(valor || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
+function keyMY(m,y){
+  return `${y}-${String(m+1).padStart(2,"0")}`;
 }
 
-function keyMY(month, year) {
-  return `${year}-${String(month + 1).padStart(2, "0")}`;
+function bucket(m,y){
+  const k = keyMY(m,y);
+  if(!state.data[k]) state.data[k]={receitas:[],despesas:[]};
+  return state.data[k];
 }
 
-function bucketBy(month, year) {
-  const key = keyMY(month, year);
-  if (!state.data[key]) state.data[key] = { receitas: [], despesas: [] };
-  return state.data[key];
-}
-
-function bucketAtual() {
-  return bucketBy(state.selected.month, state.selected.year);
-}
-
-function somarMeses(month, year, add) {
-  const base = new Date(year, month, 1);
-  base.setMonth(base.getMonth() + add);
-  return { month: base.getMonth(), year: base.getFullYear() };
+function bucketAtual(){
+  return bucket(state.selected.month,state.selected.year);
 }
 
 /* SELECTS */
 
-function initMonthYear() {
+function initSelects(){
+  mesSelect.innerHTML="";
+  anoSelect.innerHTML="";
 
-  mesSelect.innerHTML = "";
-  anoSelect.innerHTML = "";
-
-  mesesNomes.forEach((nome, i) => {
-    const opt = document.createElement("option");
-    opt.value = i;
-    opt.textContent = nome;
+  meses.forEach((nome,i)=>{
+    const opt=document.createElement("option");
+    opt.value=i;
+    opt.textContent=nome;
     mesSelect.appendChild(opt);
   });
 
-  const anoAtual = new Date().getFullYear();
-  for (let ano = anoAtual - 5; ano <= anoAtual + 5; ano++) {
-    const opt = document.createElement("option");
-    opt.value = ano;
-    opt.textContent = ano;
+  const anoAtual=new Date().getFullYear();
+  for(let a=anoAtual-5;a<=anoAtual+5;a++){
+    const opt=document.createElement("option");
+    opt.value=a;
+    opt.textContent=a;
     anoSelect.appendChild(opt);
   }
 
-  mesSelect.value = state.selected.month;
-  anoSelect.value = state.selected.year;
+  mesSelect.value=state.selected.month;
+  anoSelect.value=state.selected.year;
 
-  mesSelect.onchange = async () => {
-    state.selected.month = Number(mesSelect.value);
-    await salvarDados();
+  mesSelect.onchange=()=>{
+    state.selected.month=Number(mesSelect.value);
+    salvar();
     atualizarTudo();
   };
 
-  anoSelect.onchange = async () => {
-    state.selected.year = Number(anoSelect.value);
-    await salvarDados();
+  anoSelect.onchange=()=>{
+    state.selected.year=Number(anoSelect.value);
+    salvar();
     atualizarTudo();
   };
 }
 
 /* FIRESTORE */
 
-async function salvarDados() {
-  if (!currentUser) return;
-  await setDoc(doc(db, "finance_users", currentUser.uid), {
-    selected: state.selected,
-    data: state.data
-  }, { merge: true });
+async function salvar(){
+  if(!currentUser) return;
+  await setDoc(doc(db,"finance_users",currentUser.uid),{
+    selected:state.selected,
+    data:state.data
+  },{merge:true});
 }
 
-async function carregarDados() {
-  const snap = await getDoc(doc(db, "finance_users", currentUser.uid));
-  if (snap.exists()) {
-    const payload = snap.data();
-    state.data = payload.data || {};
-    state.selected = payload.selected || state.selected;
+async function carregar(){
+  const snap=await getDoc(doc(db,"finance_users",currentUser.uid));
+  if(snap.exists()){
+    const d=snap.data();
+    state.data=d.data||{};
+    state.selected=d.selected||state.selected;
   }
 }
 
 /* AUTH */
 
-btnRegister.onclick = async () => {
-  await createUserWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
+btnRegister.onclick=async()=>{
+  await createUserWithEmailAndPassword(auth,loginEmail.value,loginPass.value);
   alert("Cadastro realizado!");
 };
 
-btnLogin.onclick = async () => {
-  await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
+btnLogin.onclick=async()=>{
+  await signInWithEmailAndPassword(auth,loginEmail.value,loginPass.value);
 };
 
-window.logout = async () => {
+window.logout=async()=>{
   await signOut(auth);
 };
 
 /* AUTH STATE */
 
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth,async(user)=>{
 
-  if (user) {
+  if(user){
+    currentUser=user;
+    loginScreen.style.display="none";
+    userName.textContent=user.email;
+    userEmail.textContent=user.email;
 
-    currentUser = user;
-    loginScreen.style.display = "none";
-
-    userName.textContent = user.email;
-    userEmail.textContent = user.email;
-
-    await carregarDados();
-
-    initMonthYear();
+    await carregar();
+    initSelects();
     atualizarTudo();
-
-  } else {
-
-    currentUser = null;
-    loginScreen.style.display = "flex";
-    state.data = {};
-    initMonthYear();
+  }else{
+    currentUser=null;
+    loginScreen.style.display="flex";
+    state.data={};
+    initSelects();
     atualizarTudo();
   }
 
 });
 
+/* MENU */
+
+document.querySelectorAll(".menu-item").forEach(item=>{
+  item.addEventListener("click",()=>{
+    document.querySelectorAll(".menu-item").forEach(i=>i.classList.remove("active"));
+    item.classList.add("active");
+
+    document.querySelectorAll(".section").forEach(sec=>sec.classList.remove("active"));
+    document.getElementById(item.dataset.target).classList.add("active");
+  });
+});
+
 /* RECEITA */
 
-window.addReceita = async () => {
+window.addReceita=async()=>{
+  if(!currentUser) return alert("Faça login.");
 
-  if (!currentUser) return alert("Faça login.");
+  const desc=$("descReceita").value.trim();
+  const valor=parseFloat($("valorReceita").value);
 
-  const desc = descReceita.value.trim();
-  const valor = parseFloat(valorReceita.value);
-  const tipo = tipoReceita.value;
-  const meses = parseInt(mesesRecorrenciaReceita.value);
+  if(!desc||isNaN(valor)) return alert("Preencha corretamente.");
 
-  if (!desc || isNaN(valor) || valor <= 0) return alert("Preencha corretamente.");
+  bucketAtual().receitas.push({desc,valor});
+  $("descReceita").value="";
+  $("valorReceita").value="";
 
-  if (tipo === "unica") {
-    bucketAtual().receitas.push({ id: uid(), desc, valor });
-  } else {
-    for (let i = 0; i < meses; i++) {
-      const destino = somarMeses(state.selected.month, state.selected.year, i);
-      bucketBy(destino.month, destino.year).receitas.push({
-        id: uid(),
-        desc,
-        valor
-      });
-    }
-  }
-
-  descReceita.value = "";
-  valorReceita.value = "";
-
-  await salvarDados();
+  await salvar();
   atualizarTudo();
 };
 
 /* DESPESA */
 
-window.addDespesa = async () => {
+window.addDespesa=async()=>{
+  if(!currentUser) return alert("Faça login.");
 
-  if (!currentUser) return alert("Faça login.");
+  const desc=$("descDespesa").value.trim();
+  const valor=parseFloat($("valorDespesa").value);
 
-  const desc = descDespesa.value.trim();
-  const valor = parseFloat(valorDespesa.value);
-  const parcelas = parseInt(parcelasDespesa.value);
+  if(!desc||isNaN(valor)) return alert("Preencha corretamente.");
 
-  if (!desc || isNaN(valor) || valor <= 0) return alert("Preencha corretamente.");
+  bucketAtual().despesas.push({desc,valor});
+  $("descDespesa").value="";
+  $("valorDespesa").value="";
 
-  for (let i = 0; i < parcelas; i++) {
-    const destino = somarMeses(state.selected.month, state.selected.year, i);
-    bucketBy(destino.month, destino.year).despesas.push({
-      id: uid(),
-      desc,
-      valor
-    });
-  }
-
-  descDespesa.value = "";
-  valorDespesa.value = "";
-  parcelasDespesa.value = "1";
-
-  await salvarDados();
+  await salvar();
   atualizarTudo();
 };
 
 /* RENDER */
 
-function atualizarResumo() {
+function renderListas(){
+  const b=bucketAtual();
 
-  const bucket = bucketAtual();
+  listaReceitas.innerHTML=b.receitas.map(r=>`
+    <li class="list-item">
+      <div>${r.desc}</div>
+      <div class="item-value receita">${formatarBRL(r.valor)}</div>
+    </li>`).join("");
 
-  const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
-  const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
+  listaDespesas.innerHTML=b.despesas.map(d=>`
+    <li class="list-item">
+      <div>${d.desc}</div>
+      <div class="item-value despesa">${formatarBRL(d.valor)}</div>
+    </li>`).join("");
+}
 
-  totalReceitas.textContent = formatarBRL(totalR);
-  totalDespesas.textContent = formatarBRL(totalD);
-  saldoTotal.textContent = formatarBRL(totalR - totalD);
+function atualizarResumo(){
+  const b=bucketAtual();
+  const r=b.receitas.reduce((a,b)=>a+b.valor,0);
+  const d=b.despesas.reduce((a,b)=>a+b.valor,0);
+
+  totalReceitas.textContent=formatarBRL(r);
+  totalDespesas.textContent=formatarBRL(d);
+  saldoTotal.textContent=formatarBRL(r-d);
 }
 
 /* GRÁFICO */
 
-const financeChart = new Chart(financeChartCanvas.getContext("2d"), {
-  data: {
-    labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
-    datasets: [
-      { type:"bar", label:"Receitas", data:Array(12).fill(0) },
-      { type:"bar", label:"Despesas", data:Array(12).fill(0) },
-      { type:"line", label:"Saldo", data:Array(12).fill(0) }
+const chart=new Chart(financeChartCanvas,{
+  type:"bar",
+  data:{
+    labels:["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
+    datasets:[
+      {label:"Receitas",data:Array(12).fill(0)},
+      {label:"Despesas",data:Array(12).fill(0)}
     ]
   }
 });
 
-function atualizarGrafico() {
+function atualizarGrafico(){
+  const receitas=[];
+  const despesas=[];
 
-  const receitas = [];
-  const despesas = [];
-  const saldo = [];
-
-  for (let m = 0; m < 12; m++) {
-    const b = bucketBy(m, state.selected.year);
-    const r = b.receitas.reduce((a,b)=>a+b.valor,0);
-    const d = b.despesas.reduce((a,b)=>a+b.valor,0);
-
-    receitas.push(r);
-    despesas.push(d);
-    saldo.push(r - d);
+  for(let m=0;m<12;m++){
+    const b=bucket(m,state.selected.year);
+    receitas.push(b.receitas.reduce((a,b)=>a+b.valor,0));
+    despesas.push(b.despesas.reduce((a,b)=>a+b.valor,0));
   }
 
-  financeChart.data.datasets[0].data = receitas;
-  financeChart.data.datasets[1].data = despesas;
-  financeChart.data.datasets[2].data = saldo;
-
-  financeChart.update();
+  chart.data.datasets[0].data=receitas;
+  chart.data.datasets[1].data=despesas;
+  chart.update();
 }
 
-function atualizarTudo() {
+function atualizarTudo(){
+  renderListas();
   atualizarResumo();
   atualizarGrafico();
 }
@@ -775,6 +737,7 @@ function atualizarTudo() {
 </script>
 </body>
 </html>
+
 
 
 
