@@ -467,12 +467,9 @@
       </section>
     </main>
   </div>
+  <script type="module">
 
-<script type="module">
-
-/* =========================
-   IMPORTS FIREBASE
-========================= */
+/* ================= FIREBASE IMPORTS ================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import {
@@ -493,40 +490,25 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
-
-
-/* =========================
-   CONFIG FIREBASE
-========================= */
+/* ================= FIREBASE CONFIG ================= */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
-  authDomain: "financasmensaispaulods.firebaseapp.com",
-  projectId: "financasmensaispaulods",
-  storageBucket: "financasmensaispaulods.firebasestorage.app",
-  messagingSenderId: "168499253940",
-  appId: "1:168499253940:web:8d14795ad8195858283de1"
+  apiKey: "SUA_API_KEY",
+  authDomain: "SEU_AUTH_DOMAIN",
+  projectId: "SEU_PROJECT_ID",
+  storageBucket: "SEU_BUCKET",
+  messagingSenderId: "SEU_SENDER",
+  appId: "SEU_APP_ID"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
-const googleProvider = new GoogleAuthProvider();
+const provider = new GoogleAuthProvider();
 
-
-/* =========================
-   ESTADO
-========================= */
+/* ================= ESTADO ================= */
 
 let currentUser = null;
-let profileFoto = "";
 
 const state = {
   selected: {
@@ -536,10 +518,7 @@ const state = {
   data: {}
 };
 
-
-/* =========================
-   UTIL
-========================= */
+/* ================= UTIL ================= */
 
 function uid() {
   return Date.now() + "-" + Math.random().toString(36).slice(2, 8);
@@ -566,31 +545,7 @@ function bucketAtual() {
   return bucketBy(state.selected.month, state.selected.year);
 }
 
-function gerarAvatarInicial() {
-  const nome = currentUser?.displayName || currentUser?.email || "U";
-  const iniciais = nome.slice(0, 1).toUpperCase();
-
-  return `data:image/svg+xml;base64,${btoa(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
-      <rect width="100%" height="100%" fill="#1d4ed8"/>
-      <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle"
-        font-family="Arial" font-size="80" fill="#fff">${iniciais}</text>
-    </svg>
-  `)}`;
-}
-
-
-/* =========================
-   AUTH
-========================= */
-
-const btnLogin = document.getElementById("btnLogin");
-const btnRegister = document.getElementById("btnRegister");
-const btnGoogleLogin = document.getElementById("btnGoogleLogin");
-const btnResetPass = document.getElementById("btnResetPass");
-
-const loginEmail = document.getElementById("loginEmail");
-const loginPass = document.getElementById("loginPass");
+/* ================= AUTH ================= */
 
 btnRegister.onclick = async () => {
   try {
@@ -611,7 +566,7 @@ btnLogin.onclick = async () => {
 
 btnGoogleLogin.onclick = async () => {
   try {
-    await signInWithPopup(auth, googleProvider);
+    await signInWithPopup(auth, provider);
   } catch (err) {
     alert(err.message);
   }
@@ -630,152 +585,164 @@ window.logout = async () => {
   await signOut(auth);
 };
 
-
-/* =========================
-   FOTO COM STORAGE
-========================= */
-
-const inputFoto = document.getElementById("inputFoto");
-const btnTrocarFoto = document.getElementById("btnTrocarFoto");
-
-btnTrocarFoto.onclick = () => inputFoto.click();
-
-inputFoto.onchange = async (e) => {
-  const file = e.target.files[0];
-  if (!file || !currentUser) return;
-
-  const fileRef = ref(storage, `users/${currentUser.uid}/profile.jpg`);
-
-  await uploadBytes(fileRef, file);
-  const url = await getDownloadURL(fileRef);
-
-  await setDoc(doc(db, "finance_users", currentUser.uid), {
-    profile: { foto: url }
-  }, { merge: true });
-
-  profileFoto = url;
-  document.getElementById("userPhoto").src = url;
-};
-
-
-/* =========================
-   FIRESTORE
-========================= */
+/* ================= FIRESTORE ================= */
 
 async function salvarDados() {
   if (!currentUser) return;
 
   await setDoc(doc(db, "finance_users", currentUser.uid), {
     data: state.data,
-    selected: state.selected,
-    profile: {
-      foto: profileFoto
-    }
+    selected: state.selected
   }, { merge: true });
 }
 
 async function carregarDados() {
   if (!currentUser) return;
 
-  const snap = await getDoc(doc(db, "finance_users", currentUser.uid));
+  const refDoc = doc(db, "finance_users", currentUser.uid);
+  const snap = await getDoc(refDoc);
 
   if (snap.exists()) {
     const payload = snap.data();
     state.data = payload.data || {};
     state.selected = payload.selected || state.selected;
-    profileFoto = payload.profile?.foto || "";
+  } else {
+    state.data = {};
+    await setDoc(refDoc, {
+      data: {},
+      selected: state.selected
+    });
   }
 }
 
-
-/* =========================
-   AUTH STATE
-========================= */
+/* ================= AUTH STATE ================= */
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
-    document.getElementById("loginScreen").style.display = "none";
+    loginScreen.style.display = "none";
 
     await carregarDados();
 
-    document.getElementById("userName").textContent =
-      user.displayName || user.email;
-
-    document.getElementById("userEmail").textContent = user.email;
-
-    document.getElementById("userPhoto").src =
-      profileFoto || user.photoURL || gerarAvatarInicial();
+    userName.textContent = user.displayName || user.email;
+    userEmail.textContent = user.email;
 
     atualizarTudo();
 
   } else {
     currentUser = null;
-    document.getElementById("loginScreen").style.display = "flex";
+    state.data = {};
+    loginScreen.style.display = "flex";
   }
 });
 
-
-/* =========================
-   RECEITAS
-========================= */
+/* ================= RECEITAS ================= */
 
 window.addReceita = async () => {
-  const desc = document.getElementById("descReceita").value;
-  const valor = parseFloat(document.getElementById("valorReceita").value);
+  const desc = descReceita.value.trim();
+  const valor = parseFloat(valorReceita.value);
 
   if (!desc || !valor) return alert("Preencha os campos.");
 
   bucketAtual().receitas.push({ id: uid(), desc, valor });
+
+  descReceita.value = "";
+  valorReceita.value = "";
+
   await salvarDados();
   atualizarTudo();
 };
 
-
-/* =========================
-   DESPESAS
-========================= */
+/* ================= DESPESAS ================= */
 
 window.addDespesa = async () => {
-  const desc = document.getElementById("descDespesa").value;
-  const valor = parseFloat(document.getElementById("valorDespesa").value);
+  const desc = descDespesa.value.trim();
+  const valor = parseFloat(valorDespesa.value);
 
   if (!desc || !valor) return alert("Preencha os campos.");
 
   bucketAtual().despesas.push({ id: uid(), desc, valor });
+
+  descDespesa.value = "";
+  valorDespesa.value = "";
+
   await salvarDados();
   atualizarTudo();
 };
 
-
-/* =========================
-   RENDER + GRÁFICO
-========================= */
+/* ================= RENDER ================= */
 
 function atualizarTudo() {
+  renderListas();
   atualizarResumo();
   atualizarGrafico();
 }
 
+function renderListas() {
+  const bucket = bucketAtual();
+
+  listaReceitas.innerHTML = bucket.receitas.map(r => `
+    <li class="list-item">
+      <div class="item-left">
+        <strong>${r.desc}</strong>
+        <span>${formatarBRL(r.valor)}</span>
+      </div>
+    </li>
+  `).join("");
+
+  listaDespesas.innerHTML = bucket.despesas.map(d => `
+    <li class="list-item">
+      <div class="item-left">
+        <strong>${d.desc}</strong>
+        <span>${formatarBRL(d.valor)}</span>
+      </div>
+    </li>
+  `).join("");
+
+  emptyReceitas.style.display = bucket.receitas.length ? "none" : "block";
+  emptyDespesas.style.display = bucket.despesas.length ? "none" : "block";
+}
+
 function atualizarResumo() {
   const bucket = bucketAtual();
+
   const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
   const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
   const saldo = totalR - totalD;
 
-  document.getElementById("totalReceitas").textContent = formatarBRL(totalR);
-  document.getElementById("totalDespesas").textContent = formatarBRL(totalD);
-  document.getElementById("saldoTotal").textContent = formatarBRL(saldo);
+  totalReceitas.textContent = formatarBRL(totalR);
+  totalDespesas.textContent = formatarBRL(totalD);
+  saldoTotal.textContent = formatarBRL(saldo);
+
+  atualizarPatrimonio();
 }
 
-const ctx = document.getElementById("financeChart").getContext("2d");
-const financeChart = new Chart(ctx, {
+/* ================= PATRIMÔNIO ================= */
+
+function atualizarPatrimonio() {
+  let acumulado = 0;
+
+  for (let m=0; m<12; m++) {
+    const b = bucketBy(m, state.selected.year);
+    const r = b.receitas.reduce((a,b)=>a+b.valor,0);
+    const d = b.despesas.reduce((a,b)=>a+b.valor,0);
+    acumulado += (r - d);
+  }
+
+  patrimonioAcumulado.textContent = formatarBRL(acumulado);
+}
+
+/* ================= GRÁFICO ================= */
+
+const ctx = financeChart.getContext("2d");
+
+const chart = new Chart(ctx, {
   type: "bar",
   data: {
     labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
     datasets: [
-      { label:"Receitas", data:Array(12).fill(0) },
-      { label:"Despesas", data:Array(12).fill(0) }
+      { label: "Receitas", data: Array(12).fill(0) },
+      { label: "Despesas", data: Array(12).fill(0) }
     ]
   }
 });
@@ -784,19 +751,20 @@ function atualizarGrafico() {
   const receitasAno = [];
   const despesasAno = [];
 
-  for (let m=0;m<12;m++) {
+  for (let m=0; m<12; m++) {
     const b = bucketBy(m, state.selected.year);
     receitasAno.push(b.receitas.reduce((a,b)=>a+b.valor,0));
     despesasAno.push(b.despesas.reduce((a,b)=>a+b.valor,0));
   }
 
-  financeChart.data.datasets[0].data = receitasAno;
-  financeChart.data.datasets[1].data = despesasAno;
-  financeChart.update();
+  chart.data.datasets[0].data = receitasAno;
+  chart.data.datasets[1].data = despesasAno;
+  chart.update();
 }
 
 </script>
 </body>
 </html>
+
 
 
