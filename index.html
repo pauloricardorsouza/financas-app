@@ -468,674 +468,338 @@
     </main>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-    import {
-      getAuth,
-      signInWithEmailAndPassword,
-      createUserWithEmailAndPassword,
-      sendEmailVerification,
-      sendPasswordResetEmail,
-      onAuthStateChanged,
-      signOut,
-      GoogleAuthProvider,
-      signInWithPopup
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+<script type="module">
 
-    import {
-      getFirestore,
-      doc,
-      setDoc,
-      getDoc,
-      enableIndexedDbPersistence
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+/* =========================
+   IMPORTS FIREBASE
+========================= */
 
-    /* =========================
-       FIREBASE CONFIG
-    ========================== */
-    const firebaseConfig = {
-      apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
-      authDomain: "financasmensaispaulods.firebaseapp.com",
-      projectId: "financasmensaispaulods",
-      storageBucket: "financasmensaispaulods.firebasestorage.app",
-      messagingSenderId: "168499253940",
-      appId: "1:168499253940:web:8d14795ad8195858283de1"
-    };
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+  signOut,
+  GoogleAuthProvider,
+  signInWithPopup
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const googleProvider = new GoogleAuthProvider();
-    enableIndexedDbPersistence(db).catch(() => {});
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-    /* =========================
-       ESTADO DO APP
-    ========================== */
-    let currentUser = null;
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
-    const state = {
-      selected: {
-        month: new Date().getMonth(),
-        year: new Date().getFullYear()
-      },
-      data: {}
-    };
 
-    const mesesNomes = [
-      "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-      "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
-    ];
+/* =========================
+   CONFIG FIREBASE
+========================= */
 
-    function uid() {
-      return `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+const firebaseConfig = {
+  apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
+  authDomain: "financasmensaispaulods.firebaseapp.com",
+  projectId: "financasmensaispaulods",
+  storageBucket: "financasmensaispaulods.firebasestorage.app",
+  messagingSenderId: "168499253940",
+  appId: "1:168499253940:web:8d14795ad8195858283de1"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const googleProvider = new GoogleAuthProvider();
+
+
+/* =========================
+   ESTADO
+========================= */
+
+let currentUser = null;
+let profileFoto = "";
+
+const state = {
+  selected: {
+    month: new Date().getMonth(),
+    year: new Date().getFullYear()
+  },
+  data: {}
+};
+
+
+/* =========================
+   UTIL
+========================= */
+
+function uid() {
+  return Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+}
+
+function formatarBRL(valor) {
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
+}
+
+function keyMY(m, y) {
+  return `${y}-${String(m + 1).padStart(2, "0")}`;
+}
+
+function bucketBy(m, y) {
+  const k = keyMY(m, y);
+  if (!state.data[k]) state.data[k] = { receitas: [], despesas: [] };
+  return state.data[k];
+}
+
+function bucketAtual() {
+  return bucketBy(state.selected.month, state.selected.year);
+}
+
+function gerarAvatarInicial() {
+  const nome = currentUser?.displayName || currentUser?.email || "U";
+  const iniciais = nome.slice(0, 1).toUpperCase();
+
+  return `data:image/svg+xml;base64,${btoa(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+      <rect width="100%" height="100%" fill="#1d4ed8"/>
+      <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle"
+        font-family="Arial" font-size="80" fill="#fff">${iniciais}</text>
+    </svg>
+  `)}`;
+}
+
+
+/* =========================
+   AUTH
+========================= */
+
+const btnLogin = document.getElementById("btnLogin");
+const btnRegister = document.getElementById("btnRegister");
+const btnGoogleLogin = document.getElementById("btnGoogleLogin");
+const btnResetPass = document.getElementById("btnResetPass");
+
+const loginEmail = document.getElementById("loginEmail");
+const loginPass = document.getElementById("loginPass");
+
+btnRegister.onclick = async () => {
+  try {
+    await createUserWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
+    alert("Cadastro realizado!");
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
+btnLogin.onclick = async () => {
+  try {
+    await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
+btnGoogleLogin.onclick = async () => {
+  try {
+    await signInWithPopup(auth, googleProvider);
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
+btnResetPass.onclick = async () => {
+  try {
+    await sendPasswordResetEmail(auth, loginEmail.value);
+    alert("E-mail enviado!");
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
+window.logout = async () => {
+  await signOut(auth);
+};
+
+
+/* =========================
+   FOTO COM STORAGE
+========================= */
+
+const inputFoto = document.getElementById("inputFoto");
+const btnTrocarFoto = document.getElementById("btnTrocarFoto");
+
+btnTrocarFoto.onclick = () => inputFoto.click();
+
+inputFoto.onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file || !currentUser) return;
+
+  const fileRef = ref(storage, `users/${currentUser.uid}/profile.jpg`);
+
+  await uploadBytes(fileRef, file);
+  const url = await getDownloadURL(fileRef);
+
+  await setDoc(doc(db, "finance_users", currentUser.uid), {
+    profile: { foto: url }
+  }, { merge: true });
+
+  profileFoto = url;
+  document.getElementById("userPhoto").src = url;
+};
+
+
+/* =========================
+   FIRESTORE
+========================= */
+
+async function salvarDados() {
+  if (!currentUser) return;
+
+  await setDoc(doc(db, "finance_users", currentUser.uid), {
+    data: state.data,
+    selected: state.selected,
+    profile: {
+      foto: profileFoto
     }
+  }, { merge: true });
+}
 
-    function formatarBRL(valor) {
-      return Number(valor || 0).toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL"
-      });
-    }
+async function carregarDados() {
+  if (!currentUser) return;
 
-    function keyMY(month, year) {
-      return `${year}-${String(month + 1).padStart(2, "0")}`;
-    }
+  const snap = await getDoc(doc(db, "finance_users", currentUser.uid));
 
-    function bucketBy(month, year) {
-      const key = keyMY(month, year);
-      if (!state.data[key]) state.data[key] = { receitas: [], despesas: [] };
-      return state.data[key];
-    }
+  if (snap.exists()) {
+    const payload = snap.data();
+    state.data = payload.data || {};
+    state.selected = payload.selected || state.selected;
+    profileFoto = payload.profile?.foto || "";
+  }
+}
 
-    function bucketAtual() {
-      return bucketBy(state.selected.month, state.selected.year);
-    }
 
-    function textoPeriodo(month, year) {
-      return `${mesesNomes[month]}/${year}`;
-    }
+/* =========================
+   AUTH STATE
+========================= */
 
-    function textoPeriodoAtual() {
-      return textoPeriodo(state.selected.month, state.selected.year);
-    }
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
 
-    function somarMeses(month, year, add) {
-      const base = new Date(year, month, 1);
-      base.setMonth(base.getMonth() + add);
-      return { month: base.getMonth(), year: base.getFullYear() };
-    }
+    currentUser = user;
+    document.getElementById("loginScreen").style.display = "none";
 
-    function escapeHtml(text) {
-      return String(text)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
+    await carregarDados(); // 🔥 garante que carregou do Firestore
 
-    /* =========================
-       FIRESTORE (SALVAR/CARREGAR)
-    ========================== */
-    async function salvarDadosUsuario() {
-      if (!currentUser) return;
+    document.getElementById("userName").textContent =
+      user.displayName || user.email;
 
-      try {
-        const ref = doc(db, "finance_users", currentUser.uid);
-        await setDoc(ref, {
-          profile: {
-            nome: currentUser.displayName || (currentUser.email ? currentUser.email.split("@")[0] : "Usuário"),
-            email: currentUser.email || "",
-            foto: currentUser.photoURL || ""
-          },
-          selected: state.selected,
-          data: state.data,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      } catch (err) {
-        console.error("Erro ao salvar no Firestore:", err);
-      }
-    }
+    document.getElementById("userEmail").textContent = user.email;
 
-    async function carregarDadosUsuario() {
-      if (!currentUser) return;
+    document.getElementById("userPhoto").src =
+      profileFoto || user.photoURL || gerarAvatarInicial();
 
-      try {
-        const ref = doc(db, "finance_users", currentUser.uid);
-        const snap = await getDoc(ref);
+    atualizarTudo(); // 🔥 ATUALIZA TUDO DEPOIS DE CARREGAR
 
-        if (snap.exists()) {
-          const payload = snap.data();
-          state.data = payload.data || {};
-          state.selected = payload.selected || state.selected;
-        } else {
-          state.data = {};
-          state.selected = {
-            month: new Date().getMonth(),
-            year: new Date().getFullYear()
-          };
-        }
+  } else {
 
-        mesSelect.value = String(state.selected.month);
-        anoSelect.value = String(state.selected.year);
-      } catch (err) {
-        console.error("Erro ao carregar do Firestore:", err);
-        state.data = {};
-      }
-    }
-
-    function carregarInfoUsuario() {
-      if (!currentUser) return;
-
-      document.getElementById("userName").textContent =
-        currentUser.displayName || (currentUser.email ? currentUser.email.split("@")[0] : "Usuário");
-
-      document.getElementById("userEmail").textContent = currentUser.email || "";
-
-      document.getElementById("userPhoto").src =
-        currentUser.photoURL || "https://i.pravatar.cc/150?img=12";
-    }
-
-    /* =========================
-       ELEMENTOS LOGIN
-    ========================== */
-    const btnLogin = document.getElementById("btnLogin");
-    const btnRegister = document.getElementById("btnRegister");
-    const btnGoogleLogin = document.getElementById("btnGoogleLogin");
-    const btnResetPass = document.getElementById("btnResetPass");
-    const loginEmail = document.getElementById("loginEmail");
-    const loginPass = document.getElementById("loginPass");
-
-    btnRegister.addEventListener("click", async () => {
-      const email = loginEmail.value.trim().toLowerCase();
-      const pass = loginPass.value.trim();
-
-      if (!email || !pass) return alert("Preencha e-mail e senha.");
-
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, email, pass);
-
-        try {
-          await sendEmailVerification(cred.user);
-        } catch (e) {
-          console.warn("Falha ao enviar verificação:", e);
-        }
-
-        alert("Cadastro realizado com sucesso! Você já pode entrar.");
-      } catch (err) {
-        console.error(err);
-        alert(traduzErroFirebase(err));
-      }
-    });
-
-    btnLogin.addEventListener("click", async () => {
-      const email = loginEmail.value.trim().toLowerCase();
-      const pass = loginPass.value.trim();
-
-      if (!email || !pass) return alert("Preencha e-mail e senha.");
-
-      try {
-        await signInWithEmailAndPassword(auth, email, pass);
-      } catch (err) {
-        console.error(err);
-        alert(traduzErroFirebase(err));
-      }
-    });
-
-    btnGoogleLogin.addEventListener("click", async () => {
-      try {
-        await signInWithPopup(auth, googleProvider);
-      } catch (err) {
-        console.error(err);
-        alert(traduzErroFirebase(err));
-      }
-    });
-
-    btnResetPass.addEventListener("click", async () => {
-      const email = loginEmail.value.trim().toLowerCase();
-      if (!email) return alert("Digite seu e-mail para redefinir a senha.");
-
-      try {
-        await sendPasswordResetEmail(auth, email);
-        alert("E-mail de redefinição enviado.");
-      } catch (err) {
-        console.error(err);
-        alert(traduzErroFirebase(err));
-      }
-    });
-
-    [loginEmail, loginPass].forEach(el => {
-      el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") btnLogin.click();
-      });
-    });
-
-    async function logout() {
-      try {
-        await signOut(auth);
-      } catch (err) {
-        console.error(err);
-        alert("Erro ao sair.");
-      }
-    }
-
-    /* =========================
-       TOGGLE RECORRÊNCIA RECEITA
-    ========================== */
-    const tipoReceitaEl = document.getElementById("tipoReceita");
-    const mesesRecorrenciaEl = document.getElementById("mesesRecorrenciaReceita");
-
-    tipoReceitaEl.addEventListener("change", () => {
-      if (tipoReceitaEl.value === "recorrente") {
-        mesesRecorrenciaEl.classList.remove("hidden");
-      } else {
-        mesesRecorrenciaEl.classList.add("hidden");
-      }
-    });
-
-    /* =========================
-       SELECTS MÊS/ANO
-    ========================== */
-    const mesSelect = document.getElementById("mesSelect");
-    const anoSelect = document.getElementById("anoSelect");
-
-    mesesNomes.forEach((nome, i) => {
-      const opt = document.createElement("option");
-      opt.value = i;
-      opt.textContent = nome;
-      mesSelect.appendChild(opt);
-    });
-
-    const anoAtual = new Date().getFullYear();
-    for (let ano = anoAtual - 5; ano <= anoAtual + 5; ano++) {
-      const opt = document.createElement("option");
-      opt.value = ano;
-      opt.textContent = ano;
-      anoSelect.appendChild(opt);
-    }
-
-    mesSelect.addEventListener("change", async () => {
-      state.selected.month = Number(mesSelect.value);
-      await salvarDadosUsuario();
-      atualizarTudo();
-      atualizarGraficoComResize();
-    });
-
-    anoSelect.addEventListener("change", async () => {
-      state.selected.year = Number(anoSelect.value);
-      await salvarDadosUsuario();
-      atualizarTudo();
-      atualizarGraficoComResize();
-    });
-
-    /* =========================
-       MENU
-    ========================== */
-    document.querySelectorAll(".menu-item").forEach(item => {
-      item.addEventListener("click", () => {
-        document.querySelectorAll(".menu-item").forEach(i => i.classList.remove("active"));
-        item.classList.add("active");
-
-        const target = item.dataset.target;
-        document.querySelectorAll(".section").forEach(sec => sec.classList.remove("active"));
-        document.getElementById(target).classList.add("active");
-
-        if (target === "graficos") atualizarGraficoComResize();
-      });
-    });
-
-    /* =========================
-       GRÁFICO
-    ========================== */
-    const ctx = document.getElementById("financeChart").getContext("2d");
-    const financeChart = new Chart(ctx, {
-      data: {
-        labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
-        datasets: [
-          { type: "bar", label: "Receitas", data: Array(12).fill(0), borderWidth: 1 },
-          { type: "bar", label: "Despesas", data: Array(12).fill(0), borderWidth: 1 },
-          { type: "line", label: "Saldo", data: Array(12).fill(0), tension: 0.3, borderWidth: 3, pointRadius: 4 },
-          { type: "line", label: "Patrimônio Acumulado", data: Array(12).fill(0), tension: 0.25, borderWidth: 3, pointRadius: 4 }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: { labels: { color: "#fff" } },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                return " " + context.dataset.label + ": " + formatarBRL(context.raw);
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            ticks: { color: "#cbd5e1" },
-            grid: { color: "rgba(255,255,255,0.08)" }
-          },
-          y: {
-            ticks: {
-              color: "#cbd5e1",
-              callback: (value) => "R$ " + Number(value).toLocaleString("pt-BR")
-            },
-            grid: { color: "rgba(255,255,255,0.08)" }
-          }
-        }
-      }
-    });
-
-    function atualizarGraficoComResize() {
-      setTimeout(() => {
-        financeChart.resize();
-        financeChart.update();
-      }, 80);
-    }
-
-    /* =========================
-       AÇÕES RECEITAS / DESPESAS
-    ========================== */
-    async function addReceita() {
-      if (!currentUser) return alert("Faça login para cadastrar receitas.");
-
-      const descInput = document.getElementById("descReceita");
-      const valorInput = document.getElementById("valorReceita");
-      const tipoReceita = document.getElementById("tipoReceita").value;
-      const mesesRec = parseInt(document.getElementById("mesesRecorrenciaReceita").value, 10);
-
-      const desc = descInput.value.trim();
-      const valor = parseFloat(valorInput.value);
-
-      if (!desc || isNaN(valor) || valor <= 0) {
-        return alert("Preencha a descrição e um valor válido para a receita.");
-      }
-
-      if (tipoReceita === "unica") {
-        bucketAtual().receitas.push({
-          id: uid(),
-          desc,
-          valor,
-          tipo: "unica"
-        });
-      } else {
-        if (isNaN(mesesRec) || mesesRec < 1) {
-          return alert("Informe uma quantidade de meses válida para a recorrência.");
-        }
-
-        const grupoId = "rec-" + uid();
-
-        for (let i = 0; i < mesesRec; i++) {
-          const destino = somarMeses(state.selected.month, state.selected.year, i);
-          bucketBy(destino.month, destino.year).receitas.push({
-            id: uid(),
-            grupoId,
-            desc,
-            valor,
-            tipo: "recorrente",
-            recorrenciaTotal: mesesRec,
-            recorrenciaAtual: i + 1
-          });
-        }
-      }
-
-      descInput.value = "";
-      valorInput.value = "";
-      tipoReceitaEl.value = "unica";
-      mesesRecorrenciaEl.value = "12";
-      mesesRecorrenciaEl.classList.add("hidden");
-
-      await salvarDadosUsuario();
-      atualizarTudo();
-    }
-
-    async function addDespesa() {
-      if (!currentUser) return alert("Faça login para cadastrar despesas.");
-
-      const descInput = document.getElementById("descDespesa");
-      const valorInput = document.getElementById("valorDespesa");
-      const parcelasInput = document.getElementById("parcelasDespesa");
-
-      const desc = descInput.value.trim();
-      const valor = parseFloat(valorInput.value);
-      const parcelas = parseInt(parcelasInput.value, 10);
-
-      if (!desc || isNaN(valor) || valor <= 0) {
-        return alert("Preencha a descrição e um valor válido para a despesa.");
-      }
-      if (isNaN(parcelas) || parcelas < 1) {
-        return alert("Informe uma quantidade de parcelas válida.");
-      }
-
-      const grupoId = "desp-" + uid();
-
-      for (let i = 0; i < parcelas; i++) {
-        const destino = somarMeses(state.selected.month, state.selected.year, i);
-        bucketBy(destino.month, destino.year).despesas.push({
-          id: uid(),
-          grupoId,
-          desc,
-          valor,
-          parcelasTotal: parcelas,
-          parcelaAtual: i + 1
-        });
-      }
-
-      descInput.value = "";
-      valorInput.value = "";
-      parcelasInput.value = "1";
-
-      await salvarDadosUsuario();
-      atualizarTudo();
-    }
-
-    async function excluirReceita(id) {
-      const bucket = bucketAtual();
-      bucket.receitas = bucket.receitas.filter(item => item.id !== id);
-      await salvarDadosUsuario();
-      atualizarTudo();
-    }
-
-    async function excluirDespesa(id) {
-      const bucket = bucketAtual();
-      bucket.despesas = bucket.despesas.filter(item => item.id !== id);
-      await salvarDadosUsuario();
-      atualizarTudo();
-    }
-
-    // Expor funções para onclick no HTML
-    window.addReceita = addReceita;
-    window.addDespesa = addDespesa;
-    window.excluirReceita = excluirReceita;
-    window.excluirDespesa = excluirDespesa;
-    window.logout = logout;
-
-    /* =========================
-       RENDER
-    ========================== */
-    function atualizarTudo() {
-      renderListas();
-      atualizarResumo();
-      atualizarGrafico();
-    }
-
-    function renderListas() {
-      const bucket = bucketAtual();
-
-      const listaReceitas = document.getElementById("listaReceitas");
-      const listaDespesas = document.getElementById("listaDespesas");
-      const emptyReceitas = document.getElementById("emptyReceitas");
-      const emptyDespesas = document.getElementById("emptyDespesas");
-
-      listaReceitas.innerHTML = bucket.receitas.map(item => {
-        let info = textoPeriodoAtual();
-        if (item.tipo === "recorrente") {
-          info += ` • Recorrência ${item.recorrenciaAtual}/${item.recorrenciaTotal}`;
-        }
-
-        return `
-          <li class="list-item">
-            <div class="item-left">
-              <strong>${escapeHtml(item.desc)}</strong>
-              <span>${info}</span>
-            </div>
-            <div class="item-actions">
-              <div class="item-value receita">${formatarBRL(item.valor)}</div>
-              <button class="btn-delete" onclick="excluirReceita('${item.id}')">Excluir</button>
-            </div>
-          </li>
-        `;
-      }).join("");
-
-      listaDespesas.innerHTML = bucket.despesas.map(item => `
-        <li class="list-item">
-          <div class="item-left">
-            <strong>${escapeHtml(item.desc)}</strong>
-            <span>${textoPeriodoAtual()} • Parcela ${item.parcelaAtual}/${item.parcelasTotal}</span>
-          </div>
-          <div class="item-actions">
-            <div class="item-value despesa">${formatarBRL(item.valor)}</div>
-            <button class="btn-delete" onclick="excluirDespesa('${item.id}')">Excluir</button>
-          </div>
-        </li>
-      `).join("");
-
-      emptyReceitas.style.display = bucket.receitas.length ? "none" : "block";
-      emptyDespesas.style.display = bucket.despesas.length ? "none" : "block";
-    }
-
-    function atualizarResumo() {
-      const bucket = bucketAtual();
-
-      const totalR = bucket.receitas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
-      const totalD = bucket.despesas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
-      const saldo = totalR - totalD;
-
-      let patrimonio = 0;
-      for (let mes = 0; mes <= state.selected.month; mes++) {
-        const b = bucketBy(mes, state.selected.year);
-        const r = b.receitas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
-        const d = b.despesas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
-        patrimonio += (r - d);
-      }
-
-      document.getElementById("totalReceitas").textContent = formatarBRL(totalR);
-      document.getElementById("totalDespesas").textContent = formatarBRL(totalD);
-
-      const saldoEl = document.getElementById("saldoTotal");
-      saldoEl.textContent = formatarBRL(saldo);
-      saldoEl.classList.remove("positivo", "negativo");
-      saldoEl.classList.add(saldo >= 0 ? "positivo" : "negativo");
-
-      const patrimonioEl = document.getElementById("patrimonioAcumulado");
-      patrimonioEl.textContent = formatarBRL(patrimonio);
-      patrimonioEl.classList.remove("positivo", "negativo");
-      patrimonioEl.classList.add(patrimonio >= 0 ? "positivo" : "negativo");
-    }
-
-    function atualizarGrafico() {
-      const receitasAno = [];
-      const despesasAno = [];
-      const saldoAno = [];
-      const patrimonioAcumuladoAno = [];
-
-      let patrimonio = 0;
-
-      for (let mes = 0; mes < 12; mes++) {
-        const bucket = bucketBy(mes, state.selected.year);
-
-        const totalR = bucket.receitas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
-        const totalD = bucket.despesas.reduce((acc, item) => acc + Number(item.valor || 0), 0);
-        const saldo = totalR - totalD;
-
-        patrimonio += saldo;
-
-        receitasAno.push(totalR);
-        despesasAno.push(totalD);
-        saldoAno.push(saldo);
-        patrimonioAcumuladoAno.push(patrimonio);
-      }
-
-      financeChart.data.datasets[0].label = `Receitas (${state.selected.year})`;
-      financeChart.data.datasets[1].label = `Despesas (${state.selected.year})`;
-      financeChart.data.datasets[2].label = `Saldo (${state.selected.year})`;
-      financeChart.data.datasets[3].label = `Patrimônio (${state.selected.year})`;
-
-      financeChart.data.datasets[0].data = receitasAno;
-      financeChart.data.datasets[1].data = despesasAno;
-      financeChart.data.datasets[2].data = saldoAno;
-      financeChart.data.datasets[3].data = patrimonioAcumuladoAno;
-
-      financeChart.update();
-    }
-
-    /* =========================
-       AUTH STATE (AUTO LOGIN FIREBASE)
-    ========================== */
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        currentUser = user;
-        document.getElementById("loginScreen").style.display = "none";
-
-        await carregarDadosUsuario();
-        carregarInfoUsuario();
-        atualizarTudo();
-        atualizarGraficoComResize();
-      } else {
-        currentUser = null;
-        state.data = {};
-        state.selected = {
-          month: new Date().getMonth(),
-          year: new Date().getFullYear()
-        };
-        mesSelect.value = String(state.selected.month);
-        anoSelect.value = String(state.selected.year);
-
-        document.getElementById("userName").textContent = "Usuário";
-        document.getElementById("userEmail").textContent = "Faça login";
-        document.getElementById("userPhoto").src = "https://i.pravatar.cc/150?img=12";
-
-        document.getElementById("loginScreen").style.display = "flex";
-
-        atualizarTudo();
-        atualizarGraficoComResize();
-      }
-    });
-
-    /* =========================
-       MENSAGENS DE ERRO FIREBASE (PT-BR)
-    ========================== */
-    function traduzErroFirebase(err) {
-      const code = err?.code || "";
-
-      const mapa = {
-        "auth/email-already-in-use": "Este e-mail já está em uso.",
-        "auth/invalid-email": "E-mail inválido.",
-        "auth/weak-password": "Senha muito fraca (mínimo de 6 caracteres).",
-        "auth/user-not-found": "Usuário não encontrado.",
-        "auth/wrong-password": "Senha incorreta.",
-        "auth/invalid-credential": "Credenciais inválidas.",
-        "auth/popup-closed-by-user": "Login com Google cancelado.",
-        "auth/network-request-failed": "Falha de conexão. Verifique sua internet.",
-        "auth/too-many-requests": "Muitas tentativas. Tente novamente mais tarde.",
-        "auth/operation-not-allowed": "Método de login não habilitado no Firebase."
-      };
-
-      return mapa[code] || "Ocorreu um erro. Tente novamente.";
-    }
-
-    /* =========================
-       INICIALIZAÇÃO VISUAL
-    ========================== */
-    document.getElementById("userName").textContent = "Usuário";
-    document.getElementById("userEmail").textContent = "Faça login";
-    document.getElementById("userPhoto").src = "https://i.pravatar.cc/150?img=12";
+    currentUser = null;
+    state.data = {}; // limpa memória
     document.getElementById("loginScreen").style.display = "flex";
 
-    atualizarTudo();
-    atualizarGraficoComResize();
-  </script>
+  }
+});
+
+
+/* =========================
+   RECEITAS
+========================= */
+
+window.addReceita = async () => {
+  const desc = document.getElementById("descReceita").value;
+  const valor = parseFloat(document.getElementById("valorReceita").value);
+
+  if (!desc || !valor) return alert("Preencha os campos.");
+
+  bucketAtual().receitas.push({ id: uid(), desc, valor });
+  await salvarDados();
+  atualizarTudo();
+};
+
+
+/* =========================
+   DESPESAS
+========================= */
+
+window.addDespesa = async () => {
+  const desc = document.getElementById("descDespesa").value;
+  const valor = parseFloat(document.getElementById("valorDespesa").value);
+
+  if (!desc || !valor) return alert("Preencha os campos.");
+
+  bucketAtual().despesas.push({ id: uid(), desc, valor });
+  await salvarDados();
+  atualizarTudo();
+};
+
+
+/* =========================
+   RENDER + GRÁFICO
+========================= */
+
+function atualizarTudo() {
+  atualizarResumo();
+  atualizarGrafico();
+}
+
+function atualizarResumo() {
+  const bucket = bucketAtual();
+  const totalR = bucket.receitas.reduce((a,b)=>a+b.valor,0);
+  const totalD = bucket.despesas.reduce((a,b)=>a+b.valor,0);
+  const saldo = totalR - totalD;
+
+  document.getElementById("totalReceitas").textContent = formatarBRL(totalR);
+  document.getElementById("totalDespesas").textContent = formatarBRL(totalD);
+  document.getElementById("saldoTotal").textContent = formatarBRL(saldo);
+}
+
+const ctx = document.getElementById("financeChart").getContext("2d");
+const financeChart = new Chart(ctx, {
+  type: "bar",
+  data: {
+    labels: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
+    datasets: [
+      { label:"Receitas", data:Array(12).fill(0) },
+      { label:"Despesas", data:Array(12).fill(0) }
+    ]
+  }
+});
+
+function atualizarGrafico() {
+  const receitasAno = [];
+  const despesasAno = [];
+
+  for (let m=0;m<12;m++) {
+    const b = bucketBy(m, state.selected.year);
+    receitasAno.push(b.receitas.reduce((a,b)=>a+b.valor,0));
+    despesasAno.push(b.despesas.reduce((a,b)=>a+b.valor,0));
+  }
+
+  financeChart.data.datasets[0].data = receitasAno;
+  financeChart.data.datasets[1].data = despesasAno;
+  financeChart.update();
+}
+
+</script>
 </body>
 </html>
+
