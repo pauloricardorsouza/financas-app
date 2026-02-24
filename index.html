@@ -1,65 +1,587 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel Financeiro</title>
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Financeiro</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      background: #0f172a;
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 280px;
+      background: #1e293b;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .user-card {
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 18px;
+      text-align: center;
+    }
+
+    .user-photo {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #3b82f6;
+      margin-bottom: 10px;
+    }
+
+    .user-card h2 {
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+
+    .user-card p {
+      font-size: 13px;
+      color: #cbd5e1;
+      margin-bottom: 12px;
+      word-break: break-word;
+    }
+
+    .logout-btn {
+      width: 100%;
+      padding: 10px 12px;
+      background: #ef4444;
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.2s;
+    }
+
+    .logout-btn:hover {
+      background: #dc2626;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    nav li {
+      padding: 14px;
+      background: #334155;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.2s;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+
+    nav li:hover {
+      background: #475569;
+    }
+
+    nav li.active {
+      border-color: #60a5fa;
+      background: #1d4ed8;
+    }
+
+    .content {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+    }
+
+    .section {
+      display: none;
+      animation: fade 0.25s ease;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    @keyframes fade {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .page-title {
+      font-size: 26px;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 160px 140px;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    input {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      background: #0f172a;
+      color: #fff;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #60a5fa;
+    }
+
+    .btn {
+      padding: 11px 12px;
+      border: none;
+      border-radius: 10px;
+      background: #3b82f6;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.2s;
+    }
+
+    .btn:hover {
+      background: #2563eb;
+    }
+
+    .list {
+      list-style: none;
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      background: #0f172a;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .item-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .item-left strong {
+      font-size: 14px;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-left span {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .item-value {
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .item-value.receita {
+      color: #34d399;
+    }
+
+    .item-value.despesa {
+      color: #f87171;
+    }
+
+    .resumo {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .resumo .mini-card {
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .mini-card h3 {
+      font-size: 13px;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+      font-weight: normal;
+    }
+
+    .mini-card p {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .positivo { color: #34d399; }
+    .negativo { color: #f87171; }
+
+    .empty {
+      color: #94a3b8;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    canvas {
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 8px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      .resumo {
+        grid-template-columns: 1fr;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
-
-<div class="container">
-
-    <!-- SIDEBAR -->
+  <div class="container">
+    <!-- MENU LATERAL -->
     <aside class="sidebar">
+      <div>
         <div class="user-card">
-            <img src="https://i.pravatar.cc/150?img=3" class="user-photo">
-            <h2 id="userName">Paulo Rodrigues</h2>
-            <p id="userEmail">paulo@email.com</p>
-            <button class="logout-btn" onclick="logout()">Sair</button>
+          <img src="https://i.pravatar.cc/150?img=12" alt="Foto do usuário" class="user-photo" id="userPhoto">
+          <h2 id="userName">Paulo Rodrigues</h2>
+          <p id="userEmail">paulo@email.com</p>
+          <button class="logout-btn" onclick="logout()">Sair</button>
         </div>
 
-        <nav>
-            <ul>
-                <li onclick="showSection('receitas')">💰 Receitas</li>
-                <li onclick="showSection('despesas')">💸 Despesas</li>
-                <li onclick="showSection('graficos')">📊 Gráficos</li>
-            </ul>
+        <nav style="margin-top:16px;">
+          <ul>
+            <li class="menu-item active" data-target="receitas">💰 Receitas</li>
+            <li class="menu-item" data-target="despesas">💸 Despesas</li>
+            <li class="menu-item" data-target="graficos">📊 Gráficos</li>
+          </ul>
         </nav>
+      </div>
+
+      <div style="font-size:12px;color:#94a3b8;text-align:center;">
+        Painel Financeiro
+      </div>
     </aside>
 
     <!-- CONTEÚDO -->
     <main class="content">
+      <!-- Resumo -->
+      <div class="resumo">
+        <div class="mini-card">
+          <h3>Total de Receitas</h3>
+          <p id="totalReceitas" class="positivo">R$ 0,00</p>
+        </div>
+        <div class="mini-card">
+          <h3>Total de Despesas</h3>
+          <p id="totalDespesas" class="negativo">R$ 0,00</p>
+        </div>
+        <div class="mini-card">
+          <h3>Saldo</h3>
+          <p id="saldoTotal">R$ 0,00</p>
+        </div>
+      </div>
 
-        <!-- RECEITAS -->
-        <section id="receitas" class="section active">
-            <h1>Receitas</h1>
-            <input type="text" id="descReceita" placeholder="Descrição">
-            <input type="number" id="valorReceita" placeholder="Valor">
-            <button onclick="addReceita()">Adicionar</button>
-            <ul id="listaReceitas"></ul>
-        </section>
+      <!-- Seção Receitas -->
+      <section id="receitas" class="section active">
+        <h1 class="page-title">Receitas</h1>
+        <div class="card">
+          <h3>Adicionar receita</h3>
+          <div class="form-grid">
+            <input type="text" id="descReceita" placeholder="Descrição (ex: Salário)" />
+            <input type="number" id="valorReceita" placeholder="Valor" step="0.01" />
+            <button class="btn" onclick="addReceita()">Adicionar</button>
+          </div>
+          <ul id="listaReceitas" class="list"></ul>
+          <p id="emptyReceitas" class="empty">Nenhuma receita cadastrada.</p>
+        </div>
+      </section>
 
-        <!-- DESPESAS -->
-        <section id="despesas" class="section">
-            <h1>Despesas</h1>
-            <input type="text" id="descDespesa" placeholder="Descrição">
-            <input type="number" id="valorDespesa" placeholder="Valor">
-            <button onclick="addDespesa()">Adicionar</button>
-            <ul id="listaDespesas"></ul>
-        </section>
+      <!-- Seção Despesas -->
+      <section id="despesas" class="section">
+        <h1 class="page-title">Despesas</h1>
+        <div class="card">
+          <h3>Adicionar despesa</h3>
+          <div class="form-grid">
+            <input type="text" id="descDespesa" placeholder="Descrição (ex: Aluguel)" />
+            <input type="number" id="valorDespesa" placeholder="Valor" step="0.01" />
+            <button class="btn" onclick="addDespesa()">Adicionar</button>
+          </div>
+          <ul id="listaDespesas" class="list"></ul>
+          <p id="emptyDespesas" class="empty">Nenhuma despesa cadastrada.</p>
+        </div>
+      </section>
 
-        <!-- GRÁFICOS -->
-        <section id="graficos" class="section">
-            <h1>Gráfico de Rendimento</h1>
-            <canvas id="financeChart"></canvas>
-        </section>
-
+      <!-- Seção Gráficos -->
+      <section id="graficos" class="section">
+        <h1 class="page-title">Gráficos de rendimento</h1>
+        <div class="card">
+          <h3>Resumo financeiro</h3>
+          <div style="margin-top:12px;">
+            <canvas id="financeChart" height="120"></canvas>
+          </div>
+        </div>
+      </section>
     </main>
+  </div>
 
-</div>
+  <script>
+    // =========================
+    // DADOS DO USUÁRIO (exemplo)
+    // =========================
+    const usuario = {
+      nome: "Paulo Rodrigues",
+      email: "paulo@email.com",
+      foto: "https://i.pravatar.cc/150?img=12"
+    };
 
-<script src="script.js"></script>
+    // =========================
+    // ESTADO
+    // =========================
+    let receitas = [];
+    let despesas = [];
+
+    // =========================
+    // UTIL
+    // =========================
+    function formatarBRL(valor) {
+      return Number(valor || 0).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+      });
+    }
+
+    // =========================
+    // INICIALIZAÇÃO
+    // =========================
+    document.getElementById("userName").textContent = usuario.nome;
+    document.getElementById("userEmail").textContent = usuario.email;
+    document.getElementById("userPhoto").src = usuario.foto;
+
+    // Menu
+    document.querySelectorAll(".menu-item").forEach(item => {
+      item.addEventListener("click", () => {
+        document.querySelectorAll(".menu-item").forEach(i => i.classList.remove("active"));
+        item.classList.add("active");
+
+        const target = item.dataset.target;
+        document.querySelectorAll(".section").forEach(sec => sec.classList.remove("active"));
+        document.getElementById(target).classList.add("active");
+      });
+    });
+
+    // =========================
+    // GRÁFICO
+    // =========================
+    const ctx = document.getElementById("financeChart").getContext("2d");
+    const financeChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: ["Receitas", "Despesas", "Saldo"],
+        datasets: [{
+          label: "Valores (R$)",
+          data: [0, 0, 0],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            labels: {
+              color: "#fff"
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: "#cbd5e1" },
+            grid: { color: "rgba(255,255,255,0.08)" }
+          },
+          y: {
+            ticks: { color: "#cbd5e1" },
+            grid: { color: "rgba(255,255,255,0.08)" }
+          }
+        }
+      }
+    });
+
+    // =========================
+    // AÇÕES
+    // =========================
+    function addReceita() {
+      const descInput = document.getElementById("descReceita");
+      const valorInput = document.getElementById("valorReceita");
+
+      const desc = descInput.value.trim();
+      const valor = parseFloat(valorInput.value);
+
+      if (!desc || isNaN(valor) || valor <= 0) {
+        alert("Preencha a descrição e um valor válido para a receita.");
+        return;
+      }
+
+      receitas.push({
+        id: Date.now(),
+        desc,
+        valor
+      });
+
+      descInput.value = "";
+      valorInput.value = "";
+      atualizarTudo();
+    }
+
+    function addDespesa() {
+      const descInput = document.getElementById("descDespesa");
+      const valorInput = document.getElementById("valorDespesa");
+
+      const desc = descInput.value.trim();
+      const valor = parseFloat(valorInput.value);
+
+      if (!desc || isNaN(valor) || valor <= 0) {
+        alert("Preencha a descrição e um valor válido para a despesa.");
+        return;
+      }
+
+      despesas.push({
+        id: Date.now(),
+        desc,
+        valor
+      });
+
+      descInput.value = "";
+      valorInput.value = "";
+      atualizarTudo();
+    }
+
+    function logout() {
+      alert("Você saiu da conta!");
+      // Aqui você pode redirecionar para tela de login:
+      // window.location.href = "login.html";
+      location.reload();
+    }
+
+    // =========================
+    // RENDER
+    // =========================
+    function atualizarTudo() {
+      renderListas();
+      atualizarResumo();
+      atualizarGrafico();
+    }
+
+    function renderListas() {
+      const listaReceitas = document.getElementById("listaReceitas");
+      const listaDespesas = document.getElementById("listaDespesas");
+      const emptyReceitas = document.getElementById("emptyReceitas");
+      const emptyDespesas = document.getElementById("emptyDespesas");
+
+      listaReceitas.innerHTML = receitas.map(item => `
+        <li class="list-item">
+          <div class="item-left">
+            <strong>${item.desc}</strong>
+            <span>Receita cadastrada</span>
+          </div>
+          <div class="item-value receita">${formatarBRL(item.valor)}</div>
+        </li>
+      `).join("");
+
+      listaDespesas.innerHTML = despesas.map(item => `
+        <li class="list-item">
+          <div class="item-left">
+            <strong>${item.desc}</strong>
+            <span>Despesa cadastrada</span>
+          </div>
+          <div class="item-value despesa">${formatarBRL(item.valor)}</div>
+        </li>
+      `).join("");
+
+      emptyReceitas.style.display = receitas.length ? "none" : "block";
+      emptyDespesas.style.display = despesas.length ? "none" : "block";
+    }
+
+    function atualizarResumo() {
+      const totalR = receitas.reduce((acc, item) => acc + item.valor, 0);
+      const totalD = despesas.reduce((acc, item) => acc + item.valor, 0);
+      const saldo = totalR - totalD;
+
+      document.getElementById("totalReceitas").textContent = formatarBRL(totalR);
+      document.getElementById("totalDespesas").textContent = formatarBRL(totalD);
+
+      const saldoEl = document.getElementById("saldoTotal");
+      saldoEl.textContent = formatarBRL(saldo);
+      saldoEl.classList.remove("positivo", "negativo");
+      saldoEl.classList.add(saldo >= 0 ? "positivo" : "negativo");
+    }
+
+    function atualizarGrafico() {
+      const totalR = receitas.reduce((acc, item) => acc + item.valor, 0);
+      const totalD = despesas.reduce((acc, item) => acc + item.valor, 0);
+      const saldo = totalR - totalD;
+
+      financeChart.data.datasets[0].data = [totalR, totalD, saldo];
+      financeChart.update();
+    }
+
+    // Estado inicial
+    atualizarTudo();
+  </script>
 </body>
 </html>
