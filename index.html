@@ -450,9 +450,8 @@ Entrar com Google
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import {
   getAuth,
-  GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signOut
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
@@ -461,8 +460,7 @@ import {
   getFirestore,
   doc,
   setDoc,
-  getDoc,
-  enableIndexedDbPersistence
+  getDoc
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -477,8 +475,6 @@ const firebaseConfig = {
 const appFirebase = initializeApp(firebaseConfig);
 const auth = getAuth(appFirebase);
 const db = getFirestore(appFirebase);
-
-const provider = new GoogleAuthProvider();
 
 /* ================= ESTADO ================= */
 
@@ -520,47 +516,70 @@ async function load(){
   }
 }
 
-/* ================= GRÁFICO ACUMULADO ================= */
+/* ================= LOGIN EMAIL/SENHA ================= */
 
-let chart;
+const emailInput = document.getElementById("loginEmail");
+const passInput = document.getElementById("loginPass");
+const btnLogin = document.getElementById("btnLogin");
+const btnRegister = document.getElementById("btnRegister");
 
-function createChart(){
-  const ctx = document.getElementById("financeChart");
-  chart = new Chart(ctx,{
-    type:"line",
-    data:{
-      labels:[],
-      datasets:[{
-        label:"Saldo Acumulado",
-        data:[],
-        borderWidth:2,
-        tension:.3
-      }]
-    },
-    options:{ responsive:true }
-  });
-}
+btnLogin.onclick = async ()=>{
+  const email = emailInput.value.trim();
+  const pass = passInput.value.trim();
 
-function updateChart(){
-  if(!chart) return;
+  if(!email || !pass){
+    alert("Preencha email e senha");
+    return;
+  }
 
-  let acumulado = 0;
-  const labels = [];
-  const valores = [];
+  try{
+    await signInWithEmailAndPassword(auth,email,pass);
+  }catch(error){
+    alert("Usuário não encontrado ou senha inválida");
+  }
+};
 
-  Object.keys(state.data).sort().forEach(k=>{
-    const b = state.data[k];
-    const totalInc = b.incomes.reduce((a,b)=>a+b.value,0);
-    const totalExp = b.expenses.reduce((a,b)=>a+b.value,0);
-    acumulado += (totalInc-totalExp);
-    labels.push(k);
-    valores.push(acumulado);
-  });
+btnRegister.onclick = async ()=>{
+  const email = emailInput.value.trim();
+  const pass = passInput.value.trim();
 
-  chart.data.labels = labels;
-  chart.data.datasets[0].data = valores;
-  chart.update();
-}
+  if(!email || !pass){
+    alert("Preencha email e senha");
+    return;
+  }
+
+  try{
+    await createUserWithEmailAndPassword(auth,email,pass);
+
+    // cria documento no Firestore
+    await setDoc(doc(db,"users",auth.currentUser.uid),{
+      email:email,
+      createdAt:new Date()
+    });
+
+    alert("Conta criada com sucesso!");
+  }catch(error){
+    alert("Erro ao criar conta: "+error.message);
+  }
+};
+
+window.logout = ()=> signOut(auth);
+
+/* ================= CONTROLE DE SESSÃO ================= */
+
+onAuthStateChanged(auth, async user=>{
+  if(user){
+    document.getElementById("loginScreen").style.display="none";
+    document.getElementById("app").style.display="block";
+
+    await load();
+    render();
+
+  }else{
+    document.getElementById("loginScreen").style.display="flex";
+    document.getElementById("app").style.display="none";
+  }
+});
 
 /* ================= RENDER ================= */
 
@@ -573,8 +592,6 @@ function render(){
   document.getElementById("kpiReceitas").textContent = fmt(totalInc);
   document.getElementById("kpiDespesas").textContent = fmt(totalExp);
   document.getElementById("kpiSaldo").textContent = fmt(totalInc-totalExp);
-
-  updateChart();
 }
 
 /* ================= BOTÕES ================= */
@@ -605,45 +622,11 @@ document.getElementById("btnAddExpense").onclick = async ()=>{
   render();
 };
 
-/* ================= LOGIN GOOGLE (REDIRECT) ================= */
-
-document.getElementById("btnGoogle").onclick = async ()=>{
-  await signInWithRedirect(auth, provider);
-};
-
-getRedirectResult(auth).catch(console.error);
-
-window.logout = ()=>signOut(auth);
-
-/* ================= CONTROLE DE SESSÃO ================= */
-
-onAuthStateChanged(auth, async user=>{
-  if(user){
-
-    await setDoc(doc(db,"users",user.uid),{
-      email:user.email,
-      name:user.displayName,
-      photo:user.photoURL
-    },{merge:true});
-
-    document.getElementById("loginScreen").style.display="none";
-    document.getElementById("app").style.display="block";
-
-    await load();
-
-    if(!chart) createChart();
-    render();
-
-  }else{
-    document.getElementById("loginScreen").style.display="flex";
-    document.getElementById("app").style.display="none";
-  }
-});
-
 </script>
 
 </body>
 </html>
+
 
 
 
