@@ -478,8 +478,6 @@ const appFirebase = initializeApp(firebaseConfig);
 const auth = getAuth(appFirebase);
 const db = getFirestore(appFirebase);
 
-enableIndexedDbPersistence(db).catch(()=>{});
-
 const provider = new GoogleAuthProvider();
 
 /* ================= ESTADO ================= */
@@ -646,5 +644,6 @@ onAuthStateChanged(auth, async user=>{
 
 </body>
 </html>
+
 
 
