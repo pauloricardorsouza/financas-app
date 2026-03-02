@@ -393,20 +393,20 @@ display:flex;align-items:center;justify-content:center;z-index:999;
 <div style="background:#111f36;padding:30px;border-radius:20px;width:320px;display:flex;flex-direction:column;gap:20px;align-items:center;">
 <h3>Controle de Finanças</h3>
 
-<button id="btnGoogle" style="
-background:white;
-color:black;
-padding:10px 15px;
-border-radius:10px;
-cursor:pointer;
-display:flex;
-align-items:center;
-gap:10px;
-font-weight:600;
-">
-<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20">
-Entrar com Google
-</button>
+<div>
+    <center>
+    <h3>Controle de Finanças Mensais</h3>
+    </center>
+</div>
+
+<input id="loginEmail" placeholder="Email">
+<input id="loginPass" type="password" placeholder="Senha">
+
+<button id="btnLogin" class="btn">Entrar</button>
+<button id="btnRegister" class="btn secondary">Cadastrar</button>
+
+</div>
+</div>
 
 </div>
 </div>
@@ -626,6 +626,7 @@ document.getElementById("btnAddExpense").onclick = async ()=>{
 
 </body>
 </html>
+
 
 
 
