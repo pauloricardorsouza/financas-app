@@ -26,12 +26,24 @@ body{margin:0;background:#0b1220;color:#e8eefc;font-family:sans-serif}
 position:fixed;inset:0;background:#0b1220;
 display:flex;align-items:center;justify-content:center;z-index:999;
 ">
-<div style="background:#111f36;padding:30px;border-radius:20px;width:320px;display:flex;flex-direction:column;gap:15px;">
-<h3 style="text-align:center">Controle de Finanças</h3>
-<input id="loginEmail" placeholder="Email">
-<input id="loginPass" type="password" placeholder="Senha">
-<button id="btnLogin" class="btn">Entrar</button>
-<button id="btnRegister" class="btn">Cadastrar</button>
+<div style="background:#111f36;padding:30px;border-radius:20px;width:320px;display:flex;flex-direction:column;gap:20px;align-items:center;">
+<h3>Controle de Finanças</h3>
+
+<button id="btnGoogle" style="
+background:white;
+color:black;
+padding:10px 15px;
+border-radius:10px;
+cursor:pointer;
+display:flex;
+align-items:center;
+gap:10px;
+font-weight:600;
+">
+<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20">
+Entrar com Google
+</button>
+
 </div>
 </div>
 
@@ -75,8 +87,8 @@ display:flex;align-items:center;justify-content:center;z-index:999;
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import {
   getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
   onAuthStateChanged,
   signOut
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
@@ -98,26 +110,33 @@ const firebaseConfig = {
   appId: "1:168499253940:web:8d14795ad8195858283de1"
 };
 
+
 const appFirebase = initializeApp(firebaseConfig);
 const auth = getAuth(appFirebase);
 const db = getFirestore(appFirebase);
 
 enableIndexedDbPersistence(db).catch(()=>{});
 
+const provider = new GoogleAuthProvider();
+
 /* ================= ESTADO ================= */
 
 const fmt = n => (Number(n)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const uid = () => Math.random().toString(36).slice(2,10);
 
-let state={
-  data:{}
+let state = {
+  selected: {
+    month: new Date().getMonth(),
+    year: new Date().getFullYear()
+  },
+  data: {}
 };
 
 function keyMY(m,y){
   return `${y}-${String(m+1).padStart(2,"0")}`;
 }
 
-function ensureBucket(m=new Date().getMonth(),y=new Date().getFullYear()){
+function ensureBucket(m=state.selected.month,y=state.selected.year){
   const k=keyMY(m,y);
   if(!state.data[k]) state.data[k]={incomes:[],expenses:[]};
   return state.data[k];
@@ -126,14 +145,16 @@ function ensureBucket(m=new Date().getMonth(),y=new Date().getFullYear()){
 /* ================= FIRESTORE ================= */
 
 async function save(){
-  const user=auth.currentUser;
+  const user = auth.currentUser;
   await setDoc(doc(db,"users",user.uid),{finances:state});
 }
 
 async function load(){
-  const user=auth.currentUser;
-  const snap=await getDoc(doc(db,"users",user.uid));
-  if(snap.exists()) state=snap.data().finances;
+  const user = auth.currentUser;
+  const snap = await getDoc(doc(db,"users",user.uid));
+  if(snap.exists()){
+    state = snap.data().finances;
+  }
 }
 
 /* ================= GRÁFICO ACUMULADO ================= */
@@ -141,101 +162,125 @@ async function load(){
 let chart;
 
 function createChart(){
-  const ctx=document.getElementById("financeChart");
-  chart=new Chart(ctx,{
+  const ctx = document.getElementById("financeChart");
+  chart = new Chart(ctx,{
     type:"line",
-    data:{labels:[],datasets:[{label:"Saldo Acumulado",data:[],borderWidth:2}]},
-    options:{responsive:true}
+    data:{
+      labels:[],
+      datasets:[{
+        label:"Saldo Acumulado",
+        data:[],
+        borderWidth:2,
+        tension:.3
+      }]
+    },
+    options:{
+      responsive:true
+    }
   });
 }
 
 function updateChart(){
-  let acumulado=0;
-  const labels=[];
-  const valores=[];
+  let acumulado = 0;
+  const labels = [];
+  const valores = [];
 
   Object.keys(state.data).sort().forEach(k=>{
-    const b=state.data[k];
-    const totalInc=b.incomes.reduce((a,b)=>a+b.value,0);
-    const totalExp=b.expenses.reduce((a,b)=>a+b.value,0);
-    acumulado+=totalInc-totalExp;
+    const b = state.data[k];
+    const totalInc = b.incomes.reduce((a,b)=>a+b.value,0);
+    const totalExp = b.expenses.reduce((a,b)=>a+b.value,0);
+    acumulado += (totalInc-totalExp);
     labels.push(k);
     valores.push(acumulado);
   });
 
-  chart.data.labels=labels;
-  chart.data.datasets[0].data=valores;
+  chart.data.labels = labels;
+  chart.data.datasets[0].data = valores;
   chart.update();
 }
 
 /* ================= RENDER ================= */
 
 function render(){
-  const bucket=ensureBucket();
+  const bucket = ensureBucket();
 
-  const totalInc=bucket.incomes.reduce((a,b)=>a+b.value,0);
-  const totalExp=bucket.expenses.reduce((a,b)=>a+b.value,0);
+  const totalInc = bucket.incomes.reduce((a,b)=>a+b.value,0);
+  const totalExp = bucket.expenses.reduce((a,b)=>a+b.value,0);
 
-  kpiReceitas.textContent=fmt(totalInc);
-  kpiDespesas.textContent=fmt(totalExp);
-  kpiSaldo.textContent=fmt(totalInc-totalExp);
+  document.getElementById("kpiReceitas").textContent = fmt(totalInc);
+  document.getElementById("kpiDespesas").textContent = fmt(totalExp);
+  document.getElementById("kpiSaldo").textContent = fmt(totalInc-totalExp);
 
   updateChart();
 }
 
 /* ================= BOTÕES ================= */
 
-btnAddIncome.onclick=async()=>{
-  const bucket=ensureBucket();
-  const valor=Number(incValue.value);
-  if(!valor) return;
+document.getElementById("btnAddIncome").onclick = async ()=>{
+  const bucket = ensureBucket();
+  const name = document.getElementById("incName").value || "Receita";
+  const value = Number(document.getElementById("incValue").value);
 
-  bucket.incomes.push({id:uid(),name:incName.value||"Receita",value:valor});
-  incName.value=""; incValue.value="";
+  if(!value) return;
+
+  bucket.incomes.push({id:uid(),name,value});
+  document.getElementById("incName").value="";
+  document.getElementById("incValue").value="";
+
   await save();
   render();
 };
 
-btnAddExpense.onclick=async()=>{
-  const bucket=ensureBucket();
-  const valor=Number(expValue.value);
-  if(!valor) return;
+document.getElementById("btnAddExpense").onclick = async ()=>{
+  const bucket = ensureBucket();
+  const name = document.getElementById("expName").value || "Despesa";
+  const value = Number(document.getElementById("expValue").value);
 
-  bucket.expenses.push({id:uid(),name:expName.value||"Despesa",value:valor});
-  expName.value=""; expValue.value="";
+  if(!value) return;
+
+  bucket.expenses.push({id:uid(),name,value,paid:false});
+  document.getElementById("expName").value="";
+  document.getElementById("expValue").value="";
+
   await save();
   render();
 };
 
-/* ================= LOGIN ================= */
+/* ================= LOGIN GOOGLE ================= */
 
-btnLogin.onclick=async()=>{
+document.getElementById("btnGoogle").onclick = async ()=>{
   try{
-    await signInWithEmailAndPassword(auth,loginEmail.value,loginPass.value);
-  }catch(e){alert("Erro login");}
+    await signInWithPopup(auth, provider);
+  }catch(e){
+    alert("Erro ao logar");
+  }
 };
 
-btnRegister.onclick=async()=>{
-  try{
-    await createUserWithEmailAndPassword(auth,loginEmail.value,loginPass.value);
-    alert("Conta criada!");
-  }catch(e){alert("Erro cadastro");}
-};
+window.logout = ()=>signOut(auth);
 
-window.logout=()=>signOut(auth);
+/* ================= CONTROLE DE SESSÃO ================= */
 
-/* ================= AUTH ================= */
-
-onAuthStateChanged(auth,async user=>{
+onAuthStateChanged(auth, async user=>{
   if(user){
-    loginScreen.style.display="none";
-    app.style.display="block";
+
+    // cria usuário se não existir
+    await setDoc(doc(db,"users",user.uid),{
+      email:user.email,
+      name:user.displayName,
+      photo:user.photoURL
+    },{merge:true});
+
+    document.getElementById("loginScreen").style.display="none";
+    document.getElementById("app").style.display="block";
+
     await load();
-    createChart();
+
+    if(!chart) createChart();
     render();
+
   }else{
-    loginScreen.style.display="flex";
-    app.style.display="none";
+    document.getElementById("loginScreen").style.display="flex";
+    document.getElementById("app").style.display="none";
   }
 });
 
