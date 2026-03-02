@@ -67,7 +67,7 @@ input,select{background:rgba(255,255,255,.05);border:none;padding:8px;border-rad
 </div>
 
 <!-- APP -->
-<div class="app" id="app" style="display:none;">
+<div class="app" id="app" style="display:none; opacity:0;">
 <div class="topbar">
 <div class="toprow">
 <div>
@@ -233,19 +233,34 @@ await save();render();
 };
 
 /* AUTH */
-onAuthStateChanged(auth,user=>{
-if(user){
-loginScreen.style.display="none";
-app.style.display="block";
-userName.textContent=user.displayName||user.email;
-loadTenants();
-}else{
-loginScreen.style.display="flex";
-app.style.display="none";
-}
-});
+onAuthStateChanged(auth, async user => {
 
+  const login = document.getElementById("loginScreen");
+  const app = document.getElementById("app");
+
+  if (user) {
+
+    login.style.display = "none";
+    app.style.display = "block";
+
+    // Pequeno delay para evitar flicker
+    setTimeout(() => {
+      app.style.opacity = "1";
+    }, 50);
+
+    userName.textContent = user.displayName || user.email;
+
+    await loadTenants();
+
+  } else {
+
+    app.style.display = "none";
+    login.style.display = "flex";
+  }
+
+});
 </script>
 </body>
 </html>
+
 
