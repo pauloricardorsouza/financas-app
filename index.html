@@ -443,7 +443,6 @@ Entrar com Google
 <canvas id="financeChart" height="120"></canvas>
 
 </div>
-
 <script type="module">
 
 /* ================= FIREBASE ================= */
@@ -452,7 +451,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebas
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   onAuthStateChanged,
   signOut
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
@@ -473,7 +473,6 @@ const firebaseConfig = {
   messagingSenderId: "168499253940",
   appId: "1:168499253940:web:8d14795ad8195858283de1"
 };
-
 
 const appFirebase = initializeApp(firebaseConfig);
 const auth = getAuth(appFirebase);
@@ -510,13 +509,15 @@ function ensureBucket(m=state.selected.month,y=state.selected.year){
 
 async function save(){
   const user = auth.currentUser;
-  await setDoc(doc(db,"users",user.uid),{finances:state});
+  if(!user) return;
+  await setDoc(doc(db,"users",user.uid),{finances:state},{merge:true});
 }
 
 async function load(){
   const user = auth.currentUser;
+  if(!user) return;
   const snap = await getDoc(doc(db,"users",user.uid));
-  if(snap.exists()){
+  if(snap.exists() && snap.data().finances){
     state = snap.data().finances;
   }
 }
@@ -538,13 +539,13 @@ function createChart(){
         tension:.3
       }]
     },
-    options:{
-      responsive:true
-    }
+    options:{ responsive:true }
   });
 }
 
 function updateChart(){
+  if(!chart) return;
+
   let acumulado = 0;
   const labels = [];
   const valores = [];
@@ -584,13 +585,11 @@ document.getElementById("btnAddIncome").onclick = async ()=>{
   const bucket = ensureBucket();
   const name = document.getElementById("incName").value || "Receita";
   const value = Number(document.getElementById("incValue").value);
-
   if(!value) return;
 
   bucket.incomes.push({id:uid(),name,value});
   document.getElementById("incName").value="";
   document.getElementById("incValue").value="";
-
   await save();
   render();
 };
@@ -599,26 +598,22 @@ document.getElementById("btnAddExpense").onclick = async ()=>{
   const bucket = ensureBucket();
   const name = document.getElementById("expName").value || "Despesa";
   const value = Number(document.getElementById("expValue").value);
-
   if(!value) return;
 
   bucket.expenses.push({id:uid(),name,value,paid:false});
   document.getElementById("expName").value="";
   document.getElementById("expValue").value="";
-
   await save();
   render();
 };
 
-/* ================= LOGIN GOOGLE ================= */
+/* ================= LOGIN GOOGLE (REDIRECT) ================= */
 
 document.getElementById("btnGoogle").onclick = async ()=>{
-  try{
-    await signInWithPopup(auth, provider);
-  }catch(e){
-    alert("Erro ao logar");
-  }
+  await signInWithRedirect(auth, provider);
 };
+
+getRedirectResult(auth).catch(console.error);
 
 window.logout = ()=>signOut(auth);
 
@@ -627,7 +622,6 @@ window.logout = ()=>signOut(auth);
 onAuthStateChanged(auth, async user=>{
   if(user){
 
-    // cria usuário se não existir
     await setDoc(doc(db,"users",user.uid),{
       email:user.email,
       name:user.displayName,
@@ -652,4 +646,5 @@ onAuthStateChanged(auth, async user=>{
 
 </body>
 </html>
+
 
