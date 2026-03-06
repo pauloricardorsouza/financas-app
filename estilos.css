@@ -449,3 +449,12 @@ color:white;
       background: rgba(255,255,255,.02);
     }
     .mini{font-size:12px;color:var(--muted)}
+/* esconder whatsapp no mobile */
+
+@media (max-width: 768px){
+
+.whatsapp-suporte{
+display: none;
+}
+
+}
