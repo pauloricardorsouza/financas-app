@@ -1,3 +1,38 @@
+/* ================= FIREBASE ================= */
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  onSnapshot,
+  enableIndexedDbPersistence
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCr_6mww70fRdSRXVgApPSgDMs1myRLRSg",
+  authDomain: "financasmensaispaulods.firebaseapp.com",
+  projectId: "financasmensaispaulods",
+  storageBucket: "financasmensaispaulods.firebasestorage.app",
+  messagingSenderId: "168499253940",
+  appId: "1:168499253940:web:8d14795ad8195858283de1"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+enableIndexedDbPersistence(db).catch(() => {});
+
 /* ================= ELEMENTOS ================= */
 
 const loginScreen = document.getElementById("loginScreen");
@@ -36,6 +71,8 @@ const monthSel = document.getElementById("month");
 const yearSel = document.getElementById("year");
 const btnPDF = document.getElementById("btnPDF");
 
+const tabs = document.querySelectorAll(".tab");
+
 /* ================= UTIL ================= */
 
 const fmt = (n) => (Number(n) || 0).toLocaleString("pt-BR", {
@@ -44,8 +81,6 @@ const fmt = (n) => (Number(n) || 0).toLocaleString("pt-BR", {
 });
 
 const uid = () => Math.random().toString(36).slice(2, 10);
-
-const LS_KEY = "financas_app_empresarial_v3";
 
 const months = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -61,39 +96,25 @@ const state = {
   data: {}
 };
 
-const tabs = document.querySelectorAll(".tab");
+let chartSaldo = null;
+let unsubscribeUserData = null;
+let isApplyingRemoteState = false;
 
-tabs.forEach(tab=>{
+/* ================= TABS ================= */
+
+tabs.forEach(tab => {
   tab.onclick = () => {
-
-    tabs.forEach(t=>t.classList.remove("active"));
+    tabs.forEach(t => t.classList.remove("active"));
     tab.classList.add("active");
-
     state.viewCat = tab.dataset.cat;
-
     render();
-
   };
 });
+
 /* ================= STORAGE ================= */
 
 function keyMY(m, y) {
   return `${y}-${String(m + 1).padStart(2, "0")}`;
-}
-
-function load() {
-  const raw = localStorage.getItem(LS_KEY);
-  if (!raw) return;
-
-  const saved = JSON.parse(raw);
-
-  state.viewCat = saved.viewCat ?? state.viewCat;
-  state.selected = saved.selected ?? state.selected;
-  state.data = saved.data ?? {};
-}
-
-function save() {
-  localStorage.setItem(LS_KEY, JSON.stringify(state));
 }
 
 function ensureBucket(m = state.selected.month, y = state.selected.year) {
@@ -104,63 +125,130 @@ function ensureBucket(m = state.selected.month, y = state.selected.year) {
   return state.data[k];
 }
 
-/* ================= LOGIN ================= */
+async function save() {
+  const user = auth.currentUser;
+  if (!user) return;
 
-function getUsers() {
-  return JSON.parse(localStorage.getItem("usuarios_financas") || "[]");
+  const payload = {
+    viewCat: state.viewCat,
+    selected: state.selected,
+    data: state.data,
+    updatedAt: Date.now()
+  };
+
+  await setDoc(doc(db, "usuarios", user.uid), payload);
+  localStorage.setItem(`backup_financas_${user.uid}`, JSON.stringify(payload));
 }
 
-function saveUsers(users) {
-  localStorage.setItem("usuarios_financas", JSON.stringify(users));
-}
+async function load() {
+  const user = auth.currentUser;
+  if (!user) return;
 
-function checkLogin() {
-  const user = localStorage.getItem("usuario_logado");
-  loginScreen.style.display = user ? "none" : "flex";
-}
+  const ref = doc(db, "usuarios", user.uid);
+  const snap = await getDoc(ref);
 
-btnLogin.onclick = function () {
-  const email = loginEmail.value.trim();
-  const senha = loginSenha.value.trim();
-
-  const users = getUsers();
-  const user = users.find(u => u.email === email && u.senha === senha);
-
-  if (!user) {
-    alert("Usuário ou senha inválidos");
+  if (snap.exists()) {
+    const saved = snap.data();
+    state.viewCat = saved.viewCat ?? state.viewCat;
+    state.selected = saved.selected ?? state.selected;
+    state.data = saved.data ?? {};
     return;
   }
 
-  localStorage.setItem("usuario_logado", email);
-  loginScreen.style.display = "none";
+  const backupLocal = localStorage.getItem(`backup_financas_${user.uid}`);
+  if (backupLocal) {
+    const saved = JSON.parse(backupLocal);
+    state.viewCat = saved.viewCat ?? state.viewCat;
+    state.selected = saved.selected ?? state.selected;
+    state.data = saved.data ?? {};
+  }
+}
+
+function subscribeToUserData() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  if (unsubscribeUserData) unsubscribeUserData();
+
+  unsubscribeUserData = onSnapshot(doc(db, "usuarios", user.uid), (snap) => {
+    if (!snap.exists()) return;
+
+    const saved = snap.data();
+
+    isApplyingRemoteState = true;
+
+    state.viewCat = saved.viewCat ?? state.viewCat;
+    state.selected = saved.selected ?? state.selected;
+    state.data = saved.data ?? {};
+
+    localStorage.setItem(
+      `backup_financas_${user.uid}`,
+      JSON.stringify({
+        viewCat: state.viewCat,
+        selected: state.selected,
+        data: state.data,
+        updatedAt: saved.updatedAt ?? Date.now()
+      })
+    );
+
+    render();
+
+    isApplyingRemoteState = false;
+  });
+}
+
+/* ================= LOGIN ================= */
+
+btnLogin.onclick = async function () {
+  const email = loginEmail.value.trim();
+  const senha = loginSenha.value.trim();
+
+  try {
+    await signInWithEmailAndPassword(auth, email, senha);
+  } catch (e) {
+    alert("Email ou senha inválidos");
+  }
 };
 
-btnCadastro.onclick = function () {
+btnCadastro.onclick = async function () {
   const email = loginEmail.value.trim();
   const senha = loginSenha.value.trim();
 
   if (!email || !senha) {
-    alert("Preencha email e senha");
+    alert("Digite email e senha");
     return;
   }
 
-  const users = getUsers();
-
-  if (users.some(u => u.email === email)) {
-    alert("Usuário já existe");
-    return;
+  try {
+    await createUserWithEmailAndPassword(auth, email, senha);
+    alert("Conta criada com sucesso");
+  } catch (e) {
+    alert(e.message);
   }
-
-  users.push({ email, senha });
-  saveUsers(users);
-
-  alert("Conta criada!");
 };
 
-btnLogout.onclick = function () {
-  localStorage.removeItem("usuario_logado");
-  location.reload();
+btnLogout.onclick = async function () {
+  if (unsubscribeUserData) {
+    unsubscribeUserData();
+    unsubscribeUserData = null;
+  }
+  await signOut(auth);
 };
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    loginScreen.style.display = "none";
+    await load();
+    render();
+    subscribeToUserData();
+  } else {
+    loginScreen.style.display = "flex";
+    if (unsubscribeUserData) {
+      unsubscribeUserData();
+      unsubscribeUserData = null;
+    }
+  }
+});
 
 /* ================= MÊS / ANO ================= */
 
@@ -181,13 +269,11 @@ function initMonthYear() {
 
   monthSel.onchange = () => {
     state.selected.month = Number(monthSel.value);
-    save();
     render();
   };
 
   yearSel.onchange = () => {
     state.selected.year = Number(yearSel.value);
-    save();
     render();
   };
 }
@@ -196,7 +282,6 @@ function initMonthYear() {
 
 function aplicarRecorrencia() {
   const anoAtual = state.selected.year;
-
   const bases = [];
 
   for (let m = 0; m < 12; m++) {
@@ -224,7 +309,6 @@ function aplicarRecorrencia() {
 
     for (let m = base.mesInicio; m < 12; m++) {
       const bucket = ensureBucket(m, anoAtual);
-
       const existe = bucket.incomes.some(x => x.origemId === base.origemId);
 
       if (!existe) {
@@ -245,7 +329,7 @@ function aplicarRecorrencia() {
 
 /* ================= RECEITAS ================= */
 
-btnAddIncome.onclick = () => {
+btnAddIncome.onclick = async () => {
   const bucket = ensureBucket();
   const name = incName.value.trim() || "Salário";
   const value = Number(incValue.value);
@@ -271,16 +355,9 @@ btnAddIncome.onclick = () => {
   incName.value = "";
   incValue.value = "";
 
-  save();
+  await save();
   render();
 };
-
-function removeIncome(id) {
-  const bucket = ensureBucket();
-  bucket.incomes = bucket.incomes.filter(x => x.id !== id);
-  save();
-  render();
-}
 
 function removeIncomeGlobal(origemId) {
   if (!confirm("Deseja excluir este salário em TODOS os meses?")) return;
@@ -291,7 +368,6 @@ function removeIncomeGlobal(origemId) {
     );
   });
 
-  save();
   render();
 }
 
@@ -303,7 +379,7 @@ if (expParcelado && expParcelas) {
   });
 }
 
-btnAddExpense.onclick = () => {
+btnAddExpense.onclick = async () => {
   const name = expName.value.trim() || "Conta";
   const valor = Number(expValue.value);
 
@@ -316,35 +392,35 @@ btnAddExpense.onclick = () => {
   const parcelado = expParcelado.checked;
   const parcelas = Number(expParcelas.value || 0);
 
- if (parcelado) {
-  if (parcelas < 2) {
-    alert("Mínimo 2 parcelas.");
-    return;
-  }
-
-  for (let i = 0; i < parcelas; i++) {
-    let mes = state.selected.month + i;
-    let ano = state.selected.year;
-
-    while (mes > 11) {
-      mes -= 12;
-      ano++;
+  if (parcelado) {
+    if (parcelas < 2) {
+      alert("Mínimo 2 parcelas.");
+      return;
     }
 
-    const bucket = ensureBucket(mes, ano);
+    for (let i = 0; i < parcelas; i++) {
+      let mes = state.selected.month + i;
+      let ano = state.selected.year;
 
-    bucket.expenses.push({
-      id: uid(),
-      name,
-      category,
-      value: valor, // mantém o valor cheio em todas as parcelas
-      parcelas,
-      parcelaAtual: i + 1,
-      paid: false,
-      createdAt: Date.now()
-    });
-  }
-} else {
+      while (mes > 11) {
+        mes -= 12;
+        ano++;
+      }
+
+      const bucket = ensureBucket(mes, ano);
+
+      bucket.expenses.push({
+        id: uid(),
+        name,
+        category,
+        value: valor,
+        parcelas,
+        parcelaAtual: i + 1,
+        paid: false,
+        createdAt: Date.now()
+      });
+    }
+  } else {
     const bucket = ensureBucket();
 
     bucket.expenses.push({
@@ -363,7 +439,7 @@ btnAddExpense.onclick = () => {
   expParcelas.value = "";
   expParcelas.style.display = "none";
 
-  save();
+  await save();
   render();
 };
 
@@ -373,7 +449,6 @@ function togglePaid(id) {
 
   if (item) {
     item.paid = !item.paid;
-    save();
     render();
   }
 }
@@ -381,7 +456,6 @@ function togglePaid(id) {
 function removeExpense(id) {
   const bucket = ensureBucket();
   bucket.expenses = bucket.expenses.filter(x => x.id !== id);
-  save();
   render();
 }
 
@@ -445,12 +519,11 @@ function renderReceitas() {
     listReceitas.appendChild(div);
   });
 
-  listReceitas.querySelectorAll('[data-action="remove-income"]').forEach(btn => {
-    btn.onclick = () => removeIncome(btn.dataset.id);
-  });
-
   listReceitas.querySelectorAll('[data-action="remove-income-global"]').forEach(btn => {
-    btn.onclick = () => removeIncomeGlobal(btn.dataset.origem);
+    btn.onclick = async () => {
+      removeIncomeGlobal(btn.dataset.origem);
+      await save();
+    };
   });
 }
 
@@ -461,25 +534,11 @@ function renderList() {
 
   let despesas = bucket.expenses;
 
-  if (state.viewCat === "FIXA") {
-    despesas = despesas.filter(x => x.category === "FIXA");
-  }
-
-  if (state.viewCat === "CASA") {
-    despesas = despesas.filter(x => x.category === "CASA");
-  }
-
-  if (state.viewCat === "DIVERSOS") {
-    despesas = despesas.filter(x => x.category === "DIVERSOS");
-  }
-
-  if (state.viewCat === "PENDENTE") {
-    despesas = despesas.filter(x => !x.paid);
-  }
-
-  if (state.viewCat === "PAGO") {
-    despesas = despesas.filter(x => x.paid);
-  }
+  if (state.viewCat === "FIXA") despesas = despesas.filter(x => x.category === "FIXA");
+  if (state.viewCat === "CASA") despesas = despesas.filter(x => x.category === "CASA");
+  if (state.viewCat === "DIVERSOS") despesas = despesas.filter(x => x.category === "DIVERSOS");
+  if (state.viewCat === "PENDENTE") despesas = despesas.filter(x => !x.paid);
+  if (state.viewCat === "PAGO") despesas = despesas.filter(x => x.paid);
 
   emptyContas.style.display = despesas.length === 0 ? "block" : "none";
 
@@ -514,73 +573,65 @@ function renderList() {
   });
 
   listContas.querySelectorAll('[data-action="toggle-paid"]').forEach(btn => {
-    btn.onclick = () => togglePaid(btn.dataset.id);
+    btn.onclick = async () => {
+      togglePaid(btn.dataset.id);
+      await save();
+    };
   });
 
   listContas.querySelectorAll('[data-action="remove-expense"]').forEach(btn => {
-    btn.onclick = () => removeExpense(btn.dataset.id);
+    btn.onclick = async () => {
+      removeExpense(btn.dataset.id);
+      await save();
+    };
   });
 }
 
 /* ================= GRÁFICO ================= */
 
-/* ================= GRÁFICO ================= */
-
-let chartSaldo = null;
-
-function renderChartAno(){
-
+function renderChartAno() {
   const ctx = document.getElementById("chartSaldoAno");
-  if(!ctx || typeof Chart === "undefined") return;
+  if (!ctx || typeof Chart === "undefined") return;
 
   const ano = state.selected.year;
   const saldos = [];
-
   let saldoAno = 0;
 
-  for(let m=0;m<12;m++){
+  for (let m = 0; m < 12; m++) {
+    const bucket = state.data[keyMY(m, ano)] || { incomes: [], expenses: [] };
 
-    const bucket = state.data[keyMY(m,ano)] || {incomes:[],expenses:[]};
-
-    const receitas = bucket.incomes.reduce((a,b)=>a+b.value,0);
-    const despesas = bucket.expenses.reduce((a,b)=>a+b.value,0);
+    const receitas = bucket.incomes.reduce((a, b) => a + b.value, 0);
+    const despesas = bucket.expenses.reduce((a, b) => a + b.value, 0);
 
     const saldoMes = receitas - despesas;
 
     saldos.push(saldoMes);
-
     saldoAno += saldoMes;
-
   }
 
   const saldoAnoEl = document.getElementById("saldoAno");
-  if(saldoAnoEl){
-    saldoAnoEl.textContent = fmt(saldoAno);
-  }
+  if (saldoAnoEl) saldoAnoEl.textContent = fmt(saldoAno);
 
-  if(chartSaldo){
-    chartSaldo.destroy();
-  }
+  if (chartSaldo) chartSaldo.destroy();
 
-  chartSaldo = new Chart(ctx,{
-    type:"line",
-    data:{
-      labels:months,
-      datasets:[{
-        label:"Saldo mensal",
-        data:saldos,
-        tension:0.3,
-        fill:true
+  chartSaldo = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: months,
+      datasets: [{
+        label: "Saldo mensal",
+        data: saldos,
+        tension: 0.3,
+        fill: true
       }]
     },
-    options:{
-      responsive:true,
-      plugins:{
-        legend:{display:true}
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true }
       }
     }
   });
-
 }
 
 /* ================= PDF ================= */
@@ -655,35 +706,29 @@ function render() {
   renderReceitas();
   renderList();
   renderChartAno();
+
+  if (!isApplyingRemoteState) {
+    save();
+  }
 }
 
 /* ================= INIT ================= */
 
 window.addEventListener("DOMContentLoaded", () => {
-  checkLogin();
-  load();
   initMonthYear();
   ensureBucket();
   render();
 });
+
 /* ================= MINIMIZAR SEÇÕES ================= */
 
-document.querySelectorAll(".toggle").forEach(header=>{
+document.querySelectorAll(".toggle").forEach(header => {
+  header.style.cursor = "pointer";
 
-  header.style.cursor="pointer";
-
-  header.onclick=()=>{
-
+  header.onclick = () => {
     const target = document.getElementById(header.dataset.target);
+    if (!target) return;
 
-    if(!target) return;
-
-    if(target.style.display==="none"){
-      target.style.display="block";
-    }else{
-      target.style.display="none";
-    }
-
+    target.style.display = target.style.display === "none" ? "block" : "none";
   };
-
 });
