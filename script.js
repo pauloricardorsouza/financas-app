@@ -355,8 +355,8 @@ btnAddIncome.onclick = async () => {
   incName.value = "";
   incValue.value = "";
 
-  await save();
   render();
+await save();
 };
 
 function removeIncomeGlobal(origemId) {
@@ -439,8 +439,8 @@ btnAddExpense.onclick = async () => {
   expParcelas.value = "";
   expParcelas.style.display = "none";
 
-  await save();
   render();
+await save();
 };
 
 function togglePaid(id) {
