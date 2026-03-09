@@ -206,7 +206,7 @@ color:white;
     .btn:active{ transform: translateY(0px); }
     .btn.secondary{
       background: rgba(110,168,255,.28);
-      border:10px solid var(--line);
+      border:8px solid var(--line);
     }
     .grid{
       display:grid;
