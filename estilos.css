@@ -155,7 +155,7 @@ color:white;
     }
     .controls{
       display:flex;
-      gap:1px;
+      gap:5px;
       align-items:center;
       flex-wrap:wrap;
       justify-content:flex-end;
