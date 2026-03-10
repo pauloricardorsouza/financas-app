@@ -120,7 +120,7 @@ color:white;
       backdrop-filter: blur(14px);
       background: rgba(11,18,32,.72);
       border:1px solid var(--line);
-      border-radius: 5px;
+      border-radius: 18px;
       padding: 14px 14px;
       box-shadow: var(--shadow);
     }
@@ -196,7 +196,7 @@ color:white;
       border: 1px solid rgba(110,168,255,.35);
       padding: 10px 12px;
       border-radius: 10px;
-      height:50px;
+      height:60px;
       cursor:pointer;
       transition: .15s ease;
       display:inline-flex;
@@ -209,7 +209,7 @@ color:white;
     .btn.secondary{
       background: rgba(110,168,255,.28);
       border:1px solid var(--line);
-      height: 50px;
+      height: 60px;
     }
     .grid{
       display:grid;
