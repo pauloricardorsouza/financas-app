@@ -458,21 +458,7 @@ function removeExpense(id) {
   bucket.expenses = bucket.expenses.filter(x => x.id !== id);
   render();
 }
-function removeExpenseGlobal(origemId){
 
-if(!confirm("Deseja excluir esta conta em TODOS os meses?")) return;
-
-Object.keys(state.data).forEach(k => {
-
-state.data[k].expenses =
-state.data[k].expenses.filter(e => e.origemId !== origemId);
-
-});
-
-save();
-render();
-
-}
 /* ================= CÁLCULO ================= */
 
 function compute() {
@@ -578,13 +564,9 @@ function renderList() {
           ${c.paid ? "Marcar pendente" : "Marcar pago"}
         </button>
       </div>
-      <button class="btn danger" data-id="${c.id}" data-action="remove-expense">
-Excluir
-</button>
-
-<button class="btn secondary" data-origem="${c.origemId}" data-action="remove-expense-global">
-Excluir todos os meses
-</button>
+      <div class="actions">
+        <button class="btn danger" data-id="${c.id}" data-action="remove-expense">Excluir</button>
+      </div>
     `;
 
     listContas.appendChild(div);
